@@ -116,8 +116,20 @@ public class ApertureClient
 
         /* Main-source seams (see each seam's javadoc) */
         Aperture.currentRoll = () -> ClientProxy.control.roll;
+        /* Effective FOV: prefer the camera-driven override (playback / editor
+         * flight / smooth FOV) so Angle.set(PlayerEntity) and getPosition()
+         * capture flight MMB FOV edits. Legacy wrote gameSettings.fovSetting
+         * during flight; the port keeps that option intact and routes FOV
+         * through getFovOverride instead. */
         Aperture.currentFov = () ->
         {
+            Float override = getFovOverride();
+
+            if (override != null)
+            {
+                return override;
+            }
+
             MinecraftClient mc = MinecraftClient.getInstance();
 
             return mc == null || mc.options == null ? 70F : mc.options.getFov().getValue().floatValue();

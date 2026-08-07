@@ -1706,7 +1706,9 @@ public class GuiCameraEditor extends GuiBase
 
             ClientProxy.control.roll = this.position.angle.roll;
             /* Legacy set gameSettings.fovSetting here; the FOV flows through
-             * the editorPosition seam's getFovOverride on 1.20.4 */
+             * the editorPosition seam's getFovOverride on 1.20.4 (and
+             * Aperture.currentFov reads that override so editFixture /
+             * getPosition capture MMB flight FOV changes). */
 
             if (this.isSyncing() && this.haveScrubbed)
             {

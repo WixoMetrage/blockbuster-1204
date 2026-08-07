@@ -168,7 +168,12 @@ public class Aperture
     /** Current camera roll — legacy {@code ClientProxy.control.roll}. */
     public static Supplier<Float> currentRoll = () -> 0F;
 
-    /** Current FOV game option — legacy {@code gameSettings.fovSetting}. */
+    /**
+     * Current effective FOV — legacy {@code gameSettings.fovSetting}.
+     * Client install prefers the camera-driven override (playback, editor
+     * flight, smooth FOV) so fixture capture sees the live FOV, not only
+     * the integer game option.
+     */
     public static Supplier<Float> currentFov = () -> 70F;
 
     /**
