@@ -38,6 +38,9 @@ public final class VideoCaptureWiring
     /** The live capture controller (kept addressable for the debug overlay/tests). */
     public static final VideoCapture CAPTURE = new VideoCapture();
 
+    /** Minema F4 / Shift+F4 capture keybind (installed with the rest of the pipeline). */
+    public static final VideoCaptureKeyHandler KEYS = new VideoCaptureKeyHandler();
+
     private static boolean installed;
 
     private VideoCaptureWiring()
@@ -73,6 +76,9 @@ public final class VideoCaptureWiring
         }
 
         installed = true;
+
+        /* Minema F4 toggle + Shift+F4 configuration screen. */
+        KEYS.register();
 
         /* After the world, before the HUD — the same timing point the P204
          * still-screenshot path uses, so neither the HUD nor the (already

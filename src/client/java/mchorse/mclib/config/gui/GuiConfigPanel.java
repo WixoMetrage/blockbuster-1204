@@ -160,7 +160,12 @@ public class GuiConfigPanel extends GuiDashboardPanel<GuiAbstractDashboard>
         }
     }
 
-    private void selectConfig(String mod)
+    /**
+     * Select a mod's config in the list and rebuild its option columns.
+     * Public so other screens (e.g. the video capture form) can open the
+     * dashboard already focused on a specific mod.
+     */
+    public void selectConfig(String mod)
     {
         this.mods.setCurrentValue(mod);
         this.config = this.serverConfigs == null ? McLib.proxy.configs.modules.get(mod) : this.serverConfigs.get(mod);
