@@ -1,7 +1,8 @@
 package mchorse.blockbuster.client.textures;
 
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
-import mchorse.blockbuster.utils.TextureUtils;
 import mchorse.mclib.McLib;
 import mchorse.mclib.client.gui.utils.keys.LangKey;
 import mchorse.mclib.utils.ReflectionUtils;
@@ -13,6 +14,7 @@ import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.NativeImage;
 import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
@@ -23,7 +25,6 @@ import java.awt.image.BufferedImage;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -278,26 +279,77 @@ public class Textures
         }
     }
 
+    /**
+     * Upload a composited multiskin onto the texture already registered for
+     * {@code location} (the 1×1 placeholder from the multithreaded bind path,
+     * or the first-load resource texture).
+     *
+     * <p>Uses {@link NativeImages#fromBufferedImage} + {@link TextureUtil#prepareImage}
+     * + {@link NativeImage#upload} rather than a raw {@code glTexImage2D} of a
+     * hand-packed {@code ByteBuffer}:</p>
+     * <ul>
+     *   <li>{@code prepareImage} reallocates storage to the composite size
+     *       (the placeholder is 1×1; {@code NativeImage.upload} is a
+     *       {@code glTexSubImage2D} and cannot grow the texture);</li>
+     *   <li>{@code NativeImage.upload} sets {@code GL_UNPACK_*} correctly.
+     *       A bare {@code glTexImage2D} after any prior Minecraft texture load
+     *       inherits leftover {@code GL_UNPACK_ROW_LENGTH}/{@code SKIP_*} and
+     *       reads the tightly-packed RGBA buffer with the wrong stride —
+     *       multicoloured noise with transparent holes.</li>
+     * </ul>
+     */
     private static void uploadMultiskin(MultiResourceLocation location, BufferedImage image)
     {
-        int w = image.getWidth();
-        int h = image.getHeight();
-        ByteBuffer buffer = MipmapTexture.bytesFromBuffer(image);
+        NativeImage nativeImage;
+
+        try
+        {
+            nativeImage = NativeImages.fromBufferedImage(image);
+        }
+        catch (Exception e)
+        {
+            return;
+        }
+
+        Identifier id = location.toIdentifier();
+        int w = nativeImage.getWidth();
+        int h = nativeImage.getHeight();
 
         MinecraftClient.getInstance().execute(() ->
         {
-            TextureRegistry registry = TextureRegistry.get();
-            AbstractTexture texture = registry.get(location.toIdentifier());
-
-            if (texture == null)
+            try
             {
-                return;
-            }
+                TextureRegistry registry = TextureRegistry.get();
+                AbstractTexture texture = registry.get(id);
 
-            RenderSystem.bindTexture(texture.getGlId());
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, w, h, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
+                if (texture == null)
+                {
+                    return;
+                }
+
+                int glId = texture.getGlId();
+
+                /* Grow (or shrink) the GL texture to the composite size, then
+                 * upload pixels. prepareImage binds the id. */
+                TextureUtil.prepareImage(glId, w, h);
+
+                /* Defensive: clear any leftover unpack state before upload so
+                 * a future raw-GL path cannot inherit a bad ROW_LENGTH. */
+                GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
+                GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+                GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+                GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+
+                RenderSystem.bindTexture(glId);
+                nativeImage.upload(0, 0, 0, false);
+
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            }
+            finally
+            {
+                nativeImage.close();
+            }
         });
     }
 }
