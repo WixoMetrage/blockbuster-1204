@@ -20,6 +20,7 @@ import mchorse.metamorph.network.common.survival.PacketMorphState;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
@@ -65,10 +66,11 @@ import net.minecraft.util.ActionResult;
  * <tr><td>{@code PlayerEvent.Clone}</td>
  *     <td>{@link ServerPlayerEvents#COPY_FROM} (Mohist probe dropped —
  *         behavioral no-op on Fabric)</td></tr>
- * <tr><td>{@code PlayerLoggedInEvent} / {@code EntityJoinWorldEvent} /
- *         {@code StartTracking} (state resend)</td>
- *     <td>{@link ServerPlayConnectionEvents#JOIN} re-applies abilities;
- *         packet resend is SEAM(P55)</td></tr>
+ * <tr><td>{@code EntityJoinWorldEvent} (respawn / dimension spawn resync)</td>
+ *     <td>{@link ServerEntityEvents#ENTITY_LOAD} → {@link #onPlayerSpawn}</td></tr>
+ * <tr><td>{@code PlayerLoggedInEvent} / {@code StartTracking} (state resend)</td>
+ *     <td>{@link ServerPlayConnectionEvents#JOIN} re-applies abilities + full
+ *         login payload; {@link EntityTrackingEvents#START_TRACKING} for peers</td></tr>
  * </table>
  *
  * Legacy sources:
@@ -129,8 +131,24 @@ public class MorphHandler
         ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) ->
             onPlayerChangeDimension(player));
 
-        /* Clone on respawn / return-from-end (legacy CapabilityHandler.onPlayerClone). */
+        /* Clone on respawn / return-from-end (legacy CapabilityHandler.onPlayerClone).
+         * Copies the capability into the new player instance — does NOT sync the
+         * client. Packet resync is onPlayerSpawn below. */
         ServerPlayerEvents.COPY_FROM.register(MorphHandler::onPlayerClone);
+
+        /* Respawn / dimension-travel / world-join resync (legacy
+         * CapabilityHandler.onPlayerSpawn via EntityJoinWorldEvent). Without this,
+         * keep_morphs copies server-side on COPY_FROM but the new ClientPlayerEntity
+         * stays empty — the player looks demorphed and the acquired list is gone
+         * until a full relog. Login double-sends with playerLogsIn; that matches
+         * 1.12.2 (both PlayerLoggedInEvent and EntityJoinWorldEvent fired). */
+        ServerEntityEvents.ENTITY_LOAD.register((entity, world) ->
+        {
+            if (entity instanceof ServerPlayerEntity)
+            {
+                onPlayerSpawn((ServerPlayerEntity) entity);
+            }
+        });
 
         /* Login: re-apply abilities + morph-state resend (P55). */
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> playerLogsIn(handler.getPlayer()));
@@ -445,8 +463,12 @@ public class MorphHandler
     /**
      * Copy morph data from the dead/returning player to the new player instance
      * (legacy PlayerEvent.Clone). Copies when {@code keep_morphs} is set or the
-     * clone was not caused by death ({@code alive}). The legacy Mohist-server
-     * skip is dropped — dead code on Fabric (behavioral no-op).
+     * clone was not caused by death ({@code alive} — End return). The legacy
+     * Mohist-server skip is dropped — dead code on Fabric (behavioral no-op).
+     *
+     * <p>This only mutates the server capability. Client resync is
+     * {@link #onPlayerSpawn}, which runs when the new player is loaded into the
+     * world (after this copy).</p>
      */
     public static void onPlayerClone(ServerPlayerEntity oldPlayer, ServerPlayerEntity newPlayer, boolean alive)
     {
@@ -462,6 +484,34 @@ public class MorphHandler
         {
             morphing.copy(oldMorphing, newPlayer);
         }
+    }
+
+    /**
+     * Push morph state to the owning client when a server player is loaded into
+     * a world (legacy {@code CapabilityHandler.onPlayerSpawn} /
+     * {@code EntityJoinWorldEvent}).
+     *
+     * <p>Fires on login, death-respawn, and dimension travel. On death-respawn
+     * this is what makes {@link Metamorph#keepMorphs} visible: {@link #onPlayerClone}
+     * has already copied the capability, and here the packets catch the new
+     * {@code ClientPlayerEntity} up. Without this hook the server is morphed and
+     * the client is not.</p>
+     *
+     * <p>Packet set matches 1.12.2 exactly: current morph + acquired list +
+     * morph state. Ability re-apply stays on {@link #playerLogsIn} (login only)
+     * and on {@link IMorphing#copy} during clone.</p>
+     */
+    public static void onPlayerSpawn(ServerPlayerEntity player)
+    {
+        IMorphing morphing = Morphing.get(player);
+
+        if (morphing == null)
+        {
+            return;
+        }
+
+        sendAcquiredMorphs(morphing, player);
+        Dispatcher.sendTo(new PacketMorphState(player, morphing), player);
     }
 
     /**
