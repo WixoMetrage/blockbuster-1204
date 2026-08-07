@@ -60,9 +60,9 @@ import java.util.Map;
  * fill, body-part update, cape spring) plus the legacy
  * {@link #renderingOnScreen} static — the client render path toggles it around
  * its on-screen draw via {@link #setRenderingOnScreen}. The
- * per-limb {@code applyGlow} lightmap massaging (glow=1 → 240 fullbright) is
- * likewise deferred to the S6 renderer; only the {@code fixed}/{@code glow}/
- * {@code color}/{@code absoluteBrightness} data lives on {@link LimbProperties}.</p>
+ * per-limb {@link LimbProperties#applyGlow(int)} lightmap massaging (glow=1 →
+ * 240 fullbright) and pose colour are applied by {@code ModelCustomRenderer}
+ * when the active transform is a {@link LimbProperties}.</p>
  *
  * Legacy source: blockbuster-1.12/.../blockbuster_pack/morphs/CustomMorph.java
  */
@@ -984,6 +984,32 @@ public class CustomMorph extends AbstractMorph implements IBodyPartProvider, IAn
         public float getFixed()
         {
             return this.fixed;
+        }
+
+        /**
+         * Legacy {@code LimbProperties.applyGlow}: blend the lightmap's block
+         * half toward fullbright ({@code 240}) by {@link #glow}. When
+         * {@link #absoluteBrightness} is set the current block value is forced
+         * to 0 first so glow is measured from darkness rather than ambient.
+         *
+         * <p>1.20.4 packs the two 1.12 lightmap coordinates into one int
+         * ({@code block | sky << 16}); the low half is the block coordinate
+         * (same 0–240 scale as {@code OpenGlHelper.lastBrightnessX}).</p>
+         */
+        public int applyGlow(int light)
+        {
+            float lastX = (float) (light & 0xFFFF);
+            int sky = light & 0xFFFF0000;
+
+            if (this.absoluteBrightness)
+            {
+                lastX = 0F;
+            }
+
+            /* LINEAR.interpolate(lastX, 240, glow) */
+            int block = Math.round(lastX + (240F - lastX) * this.glow);
+
+            return sky | (block & 0xFFFF);
         }
 
         @Override

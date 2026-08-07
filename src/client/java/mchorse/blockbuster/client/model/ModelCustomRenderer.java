@@ -5,6 +5,7 @@ import mchorse.blockbuster.api.ModelTransform;
 import mchorse.blockbuster.client.model.parsing.ModelExtrudedLayer;
 import mchorse.blockbuster.client.render.RenderCustomModel;
 import mchorse.blockbuster.common.OrientedBB;
+import mchorse.blockbuster_pack.morphs.CustomMorph.LimbProperties;
 import mchorse.mclib.client.render.RenderingUtilsClient;
 import mchorse.mclib.utils.MatrixUtils;
 import mchorse.mclib.utils.resources.ResourceLocation;
@@ -422,7 +423,9 @@ public class ModelCustomRenderer
         matrices.push();
         this.pushTransform(matrices, scale);
 
-        if (this.limb.opacity > 0)
+        float[] tint = this.resolveLimbTint(1F, 1F, 1F, 1F);
+
+        if (tint != null)
         {
             /* Flush whatever the previous limb emitted, THEN set this limb's
              * stencil index, THEN emit this limb's geometry. */
@@ -434,9 +437,9 @@ public class ModelCustomRenderer
                 this.stencilRendering = false;
             }
 
-            int effectiveLight = this.limb.lighting ? light : fullBrightBlockKeepSky(light);
+            int effectiveLight = this.resolveLimbLight(light);
 
-            this.emit(matrices, consumer, scale, this.limb.color[0], this.limb.color[1], this.limb.color[2], this.limb.opacity, effectiveLight, overlay);
+            this.emit(matrices, consumer, scale, tint[0], tint[1], tint[2], tint[3], effectiveLight, overlay);
         }
 
         for (ModelCustomRenderer child : this.childModels)
@@ -461,7 +464,9 @@ public class ModelCustomRenderer
     {
         /* Zero-opacity early-out still updated cached matrices in legacy;
          * cachedTranslation is already computed above, so simply skip emission. */
-        if (this.limb.opacity <= 0)
+        float[] tint = this.resolveLimbTint(r, g, b, a);
+
+        if (tint == null)
         {
             return;
         }
@@ -477,14 +482,68 @@ public class ModelCustomRenderer
             this.stencilRendering = false;
         }
 
-        float cr = r * this.limb.color[0];
-        float cg = g * this.limb.color[1];
-        float cb = b * this.limb.color[2];
-        float ca = a * this.limb.opacity;
+        this.emit(matrices, consumer, scale, tint[0], tint[1], tint[2], tint[3], this.resolveLimbLight(light), overlay);
+    }
 
-        int effectiveLight = this.limb.lighting ? light : fullBrightBlockKeepSky(light);
+    /**
+     * Legacy {@code ModelCustomRenderer.setup} colour half: default to the
+     * model limb's colour/opacity, but when the active pose transform is a
+     * {@link LimbProperties} <b>replace</b> it with the pose colour (not
+     * multiply). Returns {@code null} when the limb should not emit
+     * ({@code opacity}/{@code color.a <= 0}).
+     *
+     * <p>The parent {@code r,g,b,a} is the modern vertex-tint stand-in for the
+     * ambient GL colour stack; pose/model limb colour is multiplied on top so
+     * a white pass-through matches legacy's {@code GlStateManager.color}.</p>
+     */
+    protected float[] resolveLimbTint(float r, float g, float b, float a)
+    {
+        /* Legacy early-out: limb.opacity <= 0 always skips; a pose with
+         * color.a <= 0 also skips. */
+        if (this.limb.opacity <= 0)
+        {
+            return null;
+        }
 
-        this.emit(matrices, consumer, scale, cr, cg, cb, ca, effectiveLight, overlay);
+        float lr = this.limb.color[0];
+        float lg = this.limb.color[1];
+        float lb = this.limb.color[2];
+        float la = this.limb.opacity;
+
+        if (this.trasnform instanceof LimbProperties)
+        {
+            LimbProperties prop = (LimbProperties) this.trasnform;
+
+            if (prop.color.a <= 0)
+            {
+                return null;
+            }
+
+            /* Pose colour replaces the model limb colour (legacy setup()). */
+            lr = prop.color.r;
+            lg = prop.color.g;
+            lb = prop.color.b;
+            la = prop.color.a;
+        }
+
+        return new float[] {r * lr, g * lg, b * lb, a * la};
+    }
+
+    /**
+     * Limb lighting: {@code lighting=false} pins the block lightmap half to
+     * fullbright (legacy {@code setup}), then a pose {@link LimbProperties}
+     * may further massage the lightmap via {@link LimbProperties#applyGlow}.
+     */
+    protected int resolveLimbLight(int light)
+    {
+        int effective = this.limb.lighting ? light : fullBrightBlockKeepSky(light);
+
+        if (this.trasnform instanceof LimbProperties)
+        {
+            effective = ((LimbProperties) this.trasnform).applyGlow(effective);
+        }
+
+        return effective;
     }
 
     /**
