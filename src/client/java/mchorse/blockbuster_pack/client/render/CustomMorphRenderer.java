@@ -14,6 +14,7 @@ import mchorse.blockbuster.client.render.Nameplate;
 import mchorse.blockbuster.client.render.PoseContexts;
 import mchorse.blockbuster.client.render.RenderCustomActor;
 import mchorse.blockbuster.client.render.RenderCustomModel;
+import mchorse.blockbuster.client.textures.GifTexture;
 import mchorse.blockbuster.common.OrientedBB;
 import mchorse.blockbuster_pack.morphs.CustomMorph;
 import mchorse.mclib.client.gui.framework.elements.utils.GuiDraw;
@@ -123,6 +124,16 @@ public class CustomMorphRenderer implements IMorphRenderer<CustomMorph>
         }
 
         Identifier texture = resolveTexture(morph, model.model);
+
+        /* GIF skins: resolve the current animation frame before the RenderLayer
+         * is built (same seam ImageMorphRenderer uses). The base .gif id still
+         * animates via GifTexture.getGlId once registered; resolving here keeps
+         * the layer on a concrete frame texture and matches entity.age rather
+         * than relying solely on the process-global entityTick override. */
+        if (texture != null)
+        {
+            texture = GifTexture.resolveFrame(texture, entity.age, partialTicks);
+        }
 
         RenderCustomModel.bindLastTexture(resolveSkin(morph, model.model), texture);
 
@@ -257,6 +268,11 @@ public class CustomMorphRenderer implements IMorphRenderer<CustomMorph>
 
         Identifier texture = resolveTexture(morph, RENDERER.mainModel.model);
 
+        if (texture != null)
+        {
+            texture = GifTexture.resolveFrame(texture, player.age, context.partialTicks);
+        }
+
         RenderCustomModel.bindLastTexture(resolveSkin(morph, RENDERER.mainModel.model), texture);
 
         if (texture == null)
@@ -319,9 +335,20 @@ public class CustomMorphRenderer implements IMorphRenderer<CustomMorph>
 
             morph.parts.initBodyParts();
 
-            this.setup(morph, player, MorphRenderContext.current() == null ? 0F : MorphRenderContext.current().partialTicks);
+            float partialTicks = MorphRenderContext.current() == null ? 0F : MorphRenderContext.current().partialTicks;
 
-            RenderCustomModel.bindLastTexture(resolveSkin(morph, data), resolveTexture(morph, data));
+            this.setup(morph, player, partialTicks);
+
+            Identifier texture = resolveTexture(morph, data);
+
+            if (texture != null)
+            {
+                int ticks = player == null ? 0 : player.age;
+
+                texture = GifTexture.resolveFrame(texture, ticks, partialTicks);
+            }
+
+            RenderCustomModel.bindLastTexture(resolveSkin(morph, data), texture);
 
             this.drawModel(model, morph, player, x, y, scale * data.scaleGui * morph.scaleGui, alpha);
         }

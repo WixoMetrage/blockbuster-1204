@@ -17,6 +17,7 @@ import mchorse.blockbuster.ClientProxy;
 import mchorse.blockbuster.client.ActorsPack;
 import mchorse.blockbuster.utils.mclib.GifFolder;
 import mchorse.blockbuster.utils.mclib.GifFrameFile;
+import mchorse.mclib.utils.NextTickQueue;
 import mchorse.mclib.utils.resources.ResourceLocation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -44,9 +45,28 @@ import net.minecraft.util.Identifier;
  * {@code TextureManager.registerTexture} &rarr; {@code ResourceTexture.load}
  * &rarr; the resource-manager mixin. Calling {@code GifProcessThread.create}
  * inline would re-enter {@code registerTexture} while the texture map is being
- * mutated. Legacy's {@code new Thread(() -> mc.addScheduledTask(...))} double-hop
- * existed for exactly this reason; the port collapses it to a single
- * {@code MinecraftClient.execute} (the extra thread did nothing but hop back).</p>
+ * mutated — and worse, it would lose the race against that same
+ * {@code registerTexture}:</p>
+ *
+ * <pre>
+ *   registerTexture(id, resourceTexture):
+ *     loadTexture(...)          // opens the stream → schedule(create)
+ *       create() puts GifTexture under id
+ *     textures.put(id, resourceTexture)   // overwrites GifTexture
+ *     closeTexture(GifTexture)            // animation gone forever
+ * </pre>
+ *
+ * <p>Legacy's {@code new Thread(() -> mc.addScheduledTask(...))} double-hop
+ * existed for exactly this reason: the outer thread guaranteed the scheduled
+ * task could never run <i>during</i> {@code load}. Collapsing that to
+ * {@code MinecraftClient.execute} looked equivalent, but {@code execute} runs
+ * the runnable <b>inline</b> when already on the render thread — which is
+ * exactly where texture loads happen. The animated proxy was therefore
+ * registered and immediately clobbered by the static first-frame
+ * {@code ResourceTexture}, so whole-{@code .gif} skins never animated (frame
+ * picks still worked because their identifiers are different). Creation is
+ * therefore posted on {@link NextTickQueue#CLIENT}, which drains at
+ * {@code END_CLIENT_TICK} after the load has finished putting the placeholder.</p>
  *
  * <h3>Deliberate parity deviation: the STB/GIF placeholder</h3>
  *
@@ -185,8 +205,17 @@ public class SkinPipelineWiring
     }
 
     /**
-     * Defer {@code GifProcessThread.create} onto the render thread. Legacy:
-     * {@code new Thread(() -> mc.addScheduledTask(() -> create(location, gif)))}.
+     * Defer {@code GifProcessThread.create} until <b>after</b> the in-flight
+     * {@code ResourceTexture} load has finished registering its placeholder.
+     *
+     * <p>Legacy: {@code new Thread(() -> mc.addScheduledTask(() -> create(...)))}.
+     * The outer thread was not cosmetic — it made the scheduled task unable to
+     * run during {@code load}. See the class javadoc for the overwrite race that
+     * a plain {@code MinecraftClient.execute} re-introduced.</p>
+     *
+     * <p>Production posts on {@link NextTickQueue#CLIENT} (drained at end of
+     * client tick on the render thread). Tests install {@link #renderExecutor}
+     * and collect tasks themselves.</p>
      */
     private static void schedule(Identifier location, GifFolder gif)
     {
@@ -221,7 +250,9 @@ public class SkinPipelineWiring
             return;
         }
 
-        client.execute(task);
+        /* Never client.execute: that runs inline on the render thread and loses
+         * the race against TextureManager.registerTexture's post-load put. */
+        NextTickQueue.CLIENT.post(task);
     }
 
     /**

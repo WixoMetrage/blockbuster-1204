@@ -2,6 +2,7 @@ package mchorse.mclib.client.gui.framework.elements.input;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import mchorse.blockbuster.client.textures.GifTexture;
 import mchorse.mclib.utils.resources.ResourceLocation;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
@@ -77,8 +78,15 @@ public class TexturePickerBinder implements GuiTexturePicker.TextureBinder
             throw new IllegalStateException("No texture manager (headless)");
         }
 
-        /* Legacy bindTexture: registers + loads on demand */
-        AbstractTexture texture = manager.getTexture(id);
+        /* Legacy bindTexture: registers + loads on demand. For a whole .gif the
+         * first getTexture schedules GifProcessThread (next tick); once the
+         * proxy is registered, resolveFrame picks the current animation frame
+         * so the picker preview animates rather than freezing on frame 0. */
+        manager.getTexture(id);
+
+        int ticks = mc.player == null ? GifTexture.globalTick : mc.player.age;
+        Identifier bound = GifTexture.resolveFrame(id, ticks, mc.getTickDelta());
+        AbstractTexture texture = manager.getTexture(bound);
         int glId = texture == null ? 0 : texture.getGlId();
 
         if (glId <= 0)
@@ -86,7 +94,7 @@ public class TexturePickerBinder implements GuiTexturePicker.TextureBinder
             throw new IllegalStateException("Texture " + id + " has no GL object");
         }
 
-        RenderSystem.setShaderTexture(0, id);
+        RenderSystem.setShaderTexture(0, bound);
         GlStateManager._bindTexture(glId);
 
         if (texture instanceof NativeImageBackedTexture && ((NativeImageBackedTexture) texture).getImage() != null)
