@@ -9,6 +9,7 @@
 		"BackgroundRendererCurveMixin",
 		"BackgroundRendererOutsideSkyMixin",
 		"CameraMixin",
+		"CaptureFocusMixin",
 		"ChatHudMixin",
 		"ClientWorldCurveMixin",
 		"DebugHudMixin",
