@@ -138,32 +138,84 @@ jar {
 	}
 }
 
-// DEV convenience (user-requested): after every `build`, drop the remapped
-// mod jar into the local MultiMC 1.20.4 test instance, replacing any older
-// blockbuster jar, so in-game testing needs no manual copy. Skips silently
-// when the instance folder doesn't exist (CI/other machines).
-def multimcMods = new File(System.getProperty('user.home'),
-	'.local/share/multimc/instances/1.20.4/.minecraft/mods')
+// DEV convenience: `gradlew installToInstance` builds the mod and installs the
+// remapped jar into the Prism test instance named by `instance.dir` in
+// `local.properties` (machine-specific, git-ignored). The previous Blockbuster
+// jar is moved to `<game dir>/mods_backup/` with a timestamp; no other mod is
+// touched. Replaces `installToMultiMC`, which targeted a Linux MultiMC path.
+def localProperties = new Properties()
+def localPropertiesFile = file('local.properties')
 
-tasks.register('installToMultiMC') {
-	dependsOn tasks.named('remapJar')
-	onlyIf { multimcMods.isDirectory() }
-	doLast {
-		def jarFile = tasks.remapJar.archiveFile.get().asFile
-
-		multimcMods.listFiles().findAll {
-			it.name.startsWith('blockbuster-') && it.name.endsWith('.jar')
-		}.each { it.delete() }
-
-		copy {
-			from jarFile
-			into multimcMods
-		}
-
-		println "Installed ${jarFile.name} -> ${multimcMods}"
-	}
+if (localPropertiesFile.isFile()) {
+	localPropertiesFile.withReader('UTF-8') { localProperties.load(it) }
 }
 
-tasks.named('build') {
-	finalizedBy 'installToMultiMC'
+// Windows refuses to rename a file another process holds open: a running
+// Minecraft keeps its mod jars and logs/latest.log open, so a rename that
+// fails means the game is running. The rename is undone immediately.
+def isLockedByProcess = { File file ->
+	def probe = new File(file.parentFile, file.name + '.lockcheck')
+
+	if (!file.renameTo(probe)) {
+		return true
+	}
+
+	if (!probe.renameTo(file)) {
+		throw new GradleException("Impossible de retablir ${file} (renomme en ${probe.name}) : renomme-le a la main.")
+	}
+
+	return false
+}
+
+tasks.register('installToInstance') {
+	group = 'blockbuster'
+	description = 'Builds the mod and installs it into the test instance from local.properties (instance.dir).'
+	dependsOn tasks.named('build')
+
+	doLast {
+		def instanceDir = localProperties.getProperty('instance.dir')
+
+		if (!instanceDir) {
+			throw new GradleException("instance.dir manquant. Cree local.properties a la racine du projet avec :\n" +
+				"  instance.dir=E:/PrismLauncher/instances/<instance>")
+		}
+
+		/* Prism keeps the game directory in <instance>/minecraft (older instances: .minecraft). */
+		def gameDir = ['minecraft', '.minecraft'].collect { new File(instanceDir, it) }.find { it.isDirectory() }
+
+		if (gameDir == null) {
+			throw new GradleException("Aucun dossier minecraft/ dans ${instanceDir} : verifie instance.dir dans local.properties.")
+		}
+
+		def modsDir = new File(gameDir, 'mods')
+		def backupDir = new File(gameDir, 'mods_backup')
+		def jarFile = tasks.remapJar.archiveFile.get().asFile
+
+		modsDir.mkdirs()
+
+		def oldJars = modsDir.listFiles().findAll {
+			it.isFile() && it.name.startsWith('blockbuster-') && it.name.endsWith('.jar')
+		}
+		def locked = (oldJars + [new File(gameDir, 'logs/latest.log')]).findAll { it.isFile() && isLockedByProcess(it) }
+
+		if (!locked.isEmpty()) {
+			throw new GradleException("Minecraft semble lance : ${locked*.name.join(', ')} est verrouille. " +
+				"Ferme le jeu puis relance installToInstance. Rien n a ete copie.")
+		}
+
+		def stamp = new Date().format('yyyy-MM-dd_HH-mm-ss')
+
+		oldJars.each { old ->
+			backupDir.mkdirs()
+
+			def backup = new File(backupDir, "${stamp}_${old.name}")
+
+			java.nio.file.Files.move(old.toPath(), backup.toPath())
+			println "Sauvegarde : ${old.name} -> mods_backup/${backup.name}"
+		}
+
+		java.nio.file.Files.copy(jarFile.toPath(), new File(modsDir, jarFile.name).toPath(),
+			java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+		println "Installe : ${jarFile.name} -> ${modsDir}"
+	}
 }

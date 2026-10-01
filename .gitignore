@@ -40,3 +40,7 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# local (machine-specific, never committed)
+
+local.properties

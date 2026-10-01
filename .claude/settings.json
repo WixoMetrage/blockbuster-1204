@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew installToInstance:*)",
+      "PowerShell(.\\gradlew.bat build:*)",
+      "PowerShell(.\\gradlew.bat test:*)",
+      "PowerShell(.\\gradlew.bat installToInstance:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/collect-logs.ps1:*)",
+      "Read(//e/PrismLauncher/instances/Blockbuster_Dev/minecraft/logs/**)",
+      "Read(//e/PrismLauncher/instances/Blockbuster_Dev/minecraft/crash-reports/**)",
+      "Read(//e/PrismLauncher/instances/Blockbuster_Dev/minecraft/config/blockbuster/movies/*.log)"
+    ]
+  }
+}
