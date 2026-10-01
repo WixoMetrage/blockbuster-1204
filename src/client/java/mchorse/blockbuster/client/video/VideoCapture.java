@@ -78,7 +78,7 @@ public class VideoCapture implements MinemaBackend.Capture
      * expression resolves to the capture framebuffer, at the capture size,
      * without this class knowing the feature exists. Resolving the framebuffer
      * per frame rather than caching it (see
-     * {@link FramebufferFrameSource#mainFramebuffer}) is what makes that work.</p>
+     * {@link PboFrameSource#mainFramebuffer}) is what makes that work.</p>
      *
      * <p>The same holds for the P204 still-screenshot path
      * ({@code ScreenshotCapture.captureWorldFrame}), which reads its dimensions
@@ -87,7 +87,7 @@ public class VideoCapture implements MinemaBackend.Capture
      */
     protected FrameSource frameSource(VideoParams params)
     {
-        return FramebufferFrameSource.mainFramebuffer(params);
+        return PboFrameSource.mainFramebuffer(params);
     }
 
     @Override

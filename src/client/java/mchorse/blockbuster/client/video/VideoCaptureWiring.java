@@ -58,6 +58,9 @@ public final class VideoCaptureWiring
         MinemaBackend.capture = CAPTURE;
         MinemaBackend.audioResolver = SceneAudioTracker::resolve;
 
+        /* wixo.1 (CDC R4): recorder messages go to the chat, not only the log. */
+        VideoMessages.sink = VideoChat::post;
+
         /* S22 P270: the GL half of custom-resolution capture. Without this
          * assignment CustomResolutionCapture.swap keeps its refuse-everything
          * default and every recording is made at the window size — which is

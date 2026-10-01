@@ -1,129 +1,106 @@
 package mchorse.blockbuster.client.video;
 
 /**
- * S22 <b>P270</b> — the pure half of custom-resolution capture (S18 P200): turn
- * {@code video.width}/{@code video.height} plus the window's framebuffer size
- * into the resolution a recording is actually made at, and say whether the
- * custom-resolution render path has to engage for it.
+ * The pure half of capture-resolution handling: turn {@code video.width}/
+ * {@code video.height} plus the window's framebuffer size into the size the
+ * recording is made at, and say <i>how</i> that size is produced.
  *
- * <h2>The 1.12.2 contract this reproduces</h2>
- *
- * <p>1.12.2 delegated capture to <b>Minema</b> (3.7.1 in the reference instance),
- * so there is no legacy source in the trees — but the shipped mod is the spec,
- * and its arithmetic is recoverable. {@code MinemaConfig.getFrameWidth()} is:</p>
+ * <h2>The 1.12.2 contract (Minema 3.7.1)</h2>
  *
  * <pre>
  * int w = frameWidth.get();
  * if (w == 0) w = Display.getWidth();          // "Set to 0 to use the current window width"
- * if (useVideoEncoder) w = snapResolution.snap(w);
- * return w;
- *
- * SnapResolution.snap(v) = mod == 0 ? v : v - (v % mod);   // snap DOWN to a multiple
+ * if (useVideoEncoder) w = snapResolution.snap(w);   // MOD2 by default: snap DOWN to even
  * </pre>
  *
- * <p>and the display-size override engaged exactly when
- * {@code getFrameWidth() != Display.getWidth() || getFrameHeight() != Display.getHeight()}
- * ({@code MinemaConfig.useFrameSize()}). Three things follow, and all three are
- * reproduced here:</p>
+ * <p>and the display-size override engaged exactly when the snapped size
+ * differs from the window ({@code MinemaConfig.useFrameSize()}). Both rules are
+ * kept: {@code 0} means "the window", the output is snapped down to even
+ * ({@link VideoParams#clampEven(int)}), and an odd window therefore engages the
+ * custom path.</p>
  *
- * <ol>
- * <li><b>0 means "the window"</b> — the port's {@code video.width}/
- * {@code video.height} already used that convention (P250); it is now recorded
- * as legacy-verified rather than invented.</li>
- * <li><b>The size is snapped <i>down</i> to a modulus before anything else sees
- * it.</b> Minema offered mod2/4/8/16 (the reference config ships {@code mod16})
- * and its own comment says <i>"FFMpeg only needs mod2"</i>. The port has no
- * snap config key and takes the mod2 floor, which is exactly
- * {@link VideoParams#clampEven(int)} — so {@code clampEven} is not a port
- * invention either, it is {@code SnapResolution.MOD2.snap} with a floor of 2.</li>
- * <li><b>The snap decides whether the override engages</b>, not the raw config
- * value. That is why an odd-width window engages the custom path here even with
- * {@code width = height = 0}: the recording is 1920 wide, the window is 1921, and
- * without the swap the readback would find a 1921-wide texture where the encoder
- * was promised 1920 and emit <i>blank frames</i>
- * ({@link FramebufferFrameSource}). Legacy had the identical condition.</li>
- * </ol>
+ * <h2>wixo.1 — the output size is always the requested size</h2>
  *
- * <h2>Blockers</h2>
- *
- * <p>{@code blocker} is a human-readable reason the custom-resolution path must
- * not engage on this client (an Iris shader pack, Fabulous graphics — see
- * {@code CustomResolutionCapture.blocker()}). When one is present the recording
- * falls back to the <b>window</b> size with a logged warning, which is the same
- * honest clamp P250 shipped, just no longer unconditional. Legacy had this
- * concept too: Minema's {@code aaFastRenderFix} exists because "optifine's
- * antialiasing or fast render together with a custom resolution" produced broken
- * recordings, and its workaround was to resize the real OS window instead.</p>
+ * <p>Before wixo.1 a blocked custom path fell back to the <b>raw window size</b>,
+ * which is odd for most windowed setups (1920×1009): {@code VideoParams} then
+ * rounded it to even, the readback found a framebuffer one pixel larger than
+ * the encoder was promised and every frame was dropped — a black or frozen video
+ * with no message (CDC §4.2.1). Now the output size never depends on whether the
+ * custom path engaged; only the {@link Mode} does, and the readback adapts
+ * (see {@link ReadbackPlan}).</p>
  *
  * <p>Pure — no GL, no Minecraft, headlessly testable.</p>
  */
 public final class CaptureResolution
 {
-    /** The resolved recording size plus why it is what it is. */
+    /** How the output frames are produced. */
+    public enum Mode
+    {
+        /** The window framebuffer already has the output size: read it as is. */
+        NATIVE,
+        /** The world is rendered into a capture framebuffer of the output size. */
+        CUSTOM,
+        /** Window framebuffer one pixel larger (odd size): the extra row/column is dropped. */
+        CROPPED,
+        /** Window framebuffer rendered natively, then scaled (letterboxed) to the output size. */
+        SCALED;
+
+        /** Whether the frames are not a native render at the output size (CDC R4: yellow message). */
+        public boolean degraded()
+        {
+            return this == SCALED || this == CROPPED;
+        }
+    }
+
+    /** The resolved recording size plus how and why it is produced. */
     public static final class Decision
     {
         private final int width;
         private final int height;
-        private final boolean custom;
-        private final String blocker;
-        private final int requestedWidth;
-        private final int requestedHeight;
+        private final Mode mode;
+        private final String reason;
 
-        Decision(int width, int height, boolean custom, String blocker, int requestedWidth, int requestedHeight)
+        Decision(int width, int height, Mode mode, String reason)
         {
             this.width = width;
             this.height = height;
-            this.custom = custom;
-            this.blocker = blocker;
-            this.requestedWidth = requestedWidth;
-            this.requestedHeight = requestedHeight;
+            this.mode = mode;
+            this.reason = reason;
         }
 
-        /** The width the recording is made at. */
+        /** The width of the video file — always even. */
         public int width()
         {
             return this.width;
         }
 
-        /** The height the recording is made at. */
+        /** The height of the video file — always even. */
         public int height()
         {
             return this.height;
         }
 
-        /**
-         * Whether the world has to be rendered into a capture framebuffer of its
-         * own (and the window lied to about its size) to produce this. False ⇒
-         * the recording is the window's own framebuffer, i.e. exactly the path
-         * that shipped before P270.
-         */
+        public Mode mode()
+        {
+            return this.mode;
+        }
+
+        /** Whether the world must be rendered into a capture framebuffer. */
         public boolean custom()
         {
-            return this.custom;
+            return this.mode == Mode.CUSTOM;
         }
 
-        /** Why the requested size was refused, or {@code null} when it was not. */
-        public String blocker()
+        /** Why the custom path was not used, or {@code null}. */
+        public String reason()
         {
-            return this.blocker;
+            return this.reason;
         }
 
-        /** The size that <i>was</i> asked for — differs from {@link #width()} only when blocked. */
-        public int requestedWidth()
+        /** The same size, produced by scaling the window instead (custom path refused late). */
+        public Decision scaled(String reason)
         {
-            return this.requestedWidth;
-        }
-
-        /** @see #requestedWidth() */
-        public int requestedHeight()
-        {
-            return this.requestedHeight;
-        }
-
-        /** True when a request was downgraded to the window size. */
-        public boolean clamped()
-        {
-            return this.blocker != null;
+            return new Decision(this.width, this.height, Mode.SCALED, reason);
         }
     }
 
@@ -141,25 +118,21 @@ public final class CaptureResolution
      */
     public static Decision resolve(int configWidth, int configHeight, int windowWidth, int windowHeight, String blocker)
     {
-        /* Legacy MinemaConfig.getFrameWidth(): 0 ⇒ window, then snap. */
         int width = VideoParams.clampEven(configWidth > 0 ? configWidth : windowWidth);
         int height = VideoParams.clampEven(configHeight > 0 ? configHeight : windowHeight);
 
-        /* Legacy MinemaConfig.useFrameSize(): compare the SNAPPED size, not the
-         * configured one — an odd window is a custom resolution. */
-        boolean custom = width != windowWidth || height != windowHeight;
-
-        if (custom && blocker != null)
+        if (width == windowWidth && height == windowHeight)
         {
-            return new Decision(windowWidth, windowHeight, false, blocker, width, height);
+            return new Decision(width, height, Mode.NATIVE, null);
         }
 
-        return new Decision(width, height, custom, null, width, height);
-    }
+        if (blocker == null)
+        {
+            return new Decision(width, height, Mode.CUSTOM, null);
+        }
 
-    /** The unconditional fallback: record whatever the window is, no swap. */
-    public static Decision window(int windowWidth, int windowHeight, String reason)
-    {
-        return new Decision(windowWidth, windowHeight, false, reason, windowWidth, windowHeight);
+        Mode fallback = ReadbackPlan.isCrop(windowWidth, windowHeight, width, height) ? Mode.CROPPED : Mode.SCALED;
+
+        return new Decision(width, height, fallback, blocker);
     }
 }

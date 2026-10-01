@@ -1,0 +1,15 @@
+{
+  "blockbuster.config.video.custom_resolution_shaders": "Résolution choisie avec shaders",
+  "blockbuster.video.msg.start": "● Enregistrement %s×%s — %s — %s",
+  "blockbuster.video.msg.shaders_on": "shaders actifs",
+  "blockbuster.video.msg.shaders_off": "sans shaders",
+  "blockbuster.video.msg.scaled": "La fenêtre (%s×%s) est rendue à sa taille puis mise à l'échelle vers la taille de la vidéo : %s",
+  "blockbuster.video.msg.cropped": "La fenêtre (%s×%s) a une taille impaire : un pixel est rogné. Raison : %s",
+  "blockbuster.video.msg.resized": "La fenêtre a changé de taille (%s×%s) pendant la prise : les images sont mises à l'échelle pour garder la vidéo en %s×%s",
+  "blockbuster.video.msg.no_ffmpeg": "Impossible de lancer ffmpeg (%s) : enregistrement en séquence PNG à la place. Vérifie le chemin de ffmpeg dans les réglages vidéo",
+  "blockbuster.video.msg.shader_chroma": "Le ciel fond vert est activé, mais le pack de shaders dessine son propre ciel : cette prise ne pourra pas être détourée",
+  "blockbuster.video.msg.shader_alpha": "L'enregistrement transparent est activé, mais le pack de shaders écrit le canal alpha : il sera opaque",
+  "blockbuster.video.reason.shaders_option": "la résolution choisie avec shaders est désactivée dans les réglages vidéo",
+  "blockbuster.video.reason.fabulous": "le mode graphique Fabuleux est activé",
+  "blockbuster.video.reason.driver": "la carte graphique a refusé un framebuffer de cette taille"
+}

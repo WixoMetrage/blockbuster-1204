@@ -120,6 +120,19 @@ public final class VideoConfig
     }
 
     /**
+     * {@code video.custom_resolution_shaders} — whether a recording at a size
+     * other than the window's renders at that size even when an Iris shader pack
+     * is active (wixo.1). Off ⇒ the window is rendered natively and scaled.
+     */
+    public static boolean customResolutionShaders()
+    {
+        return Blockbuster.videoCustomResolutionShaders.get();
+    }
+
+    /** Default for {@code video.custom_resolution_shaders}. */
+    public static final boolean DEFAULT_CUSTOM_RESOLUTION_SHADERS = true;
+
+    /**
      * Video-only ffmpeg argument template. Placeholders: {@code %WIDTH%},
      * {@code %HEIGHT%}, {@code %FPS%}, {@code %FILTERS%}, {@code %NAME%}.
      */

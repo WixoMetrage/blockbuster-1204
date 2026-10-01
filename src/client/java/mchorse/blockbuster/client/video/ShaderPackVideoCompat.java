@@ -16,7 +16,7 @@ import java.util.function.BooleanSupplier;
  * <p>{@code plan/S18-video-capture.md} handed S21 the Iris/Sodium behaviour of
  * three things and S21 never absorbed it (found 2026-07-26 by batch W-G's
  * {@code PlanHandoffAuditTest}, filed as roadmap <b>P272.1</b>): the recorder's
- * framebuffer readback ({@link VideoRecorder} / {@link FramebufferFrameSource}),
+ * framebuffer readback ({@link VideoRecorder} / {@link PboFrameSource}),
  * the green-screen sky ({@link ChromaSky}) and the alpha readback
  * ({@link ScreenshotCapture}). This class is the single decision table for all
  * three, and the only place that asks whether a pack is in use.</p>
@@ -270,7 +270,7 @@ public final class ShaderPackVideoCompat
         }
 
         out.add("a shader pack is in use: frames are captured after the pack's composite pass "
-            + "(the held item/hand is inside that frame, and a custom capture resolution stays unavailable)");
+            + "(the held item/hand is inside that frame)");
 
         if (chromaRequested)
         {
@@ -300,9 +300,22 @@ public final class ShaderPackVideoCompat
      */
     public static void reportAtRecordStart(boolean alphaRequested, boolean chromaRequested)
     {
-        for (String line : degradations(alphaRequested, chromaRequested))
+        boolean pack = isShaderPackInUse();
+
+        for (String line : degradations(pack, alphaRequested, chromaRequested))
         {
             LOGGER.warn("Shader-pack video compatibility (P272.1) — {}", line);
+        }
+
+        /* wixo.1 (CDC R4): the user-visible half of the same report. */
+        if (pack && chromaRequested)
+        {
+            VideoMessages.warning("blockbuster.video.msg.shader_chroma");
+        }
+
+        if (pack && alphaRequested)
+        {
+            VideoMessages.warning("blockbuster.video.msg.shader_alpha");
         }
     }
 
