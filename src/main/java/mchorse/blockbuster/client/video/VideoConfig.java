@@ -160,6 +160,12 @@ public final class VideoConfig
         return preset == null ? "ffmpeg (custom)" : preset.label();
     }
 
+    /** {@code video.debug} — verbose recorder diagnostics in {@code latest.log} (CDC §2.6). */
+    public static boolean debug()
+    {
+        return Blockbuster.videoDebug.get();
+    }
+
     /** Default for {@code video.custom_resolution_shaders}. */
     public static final boolean DEFAULT_CUSTOM_RESOLUTION_SHADERS = true;
 

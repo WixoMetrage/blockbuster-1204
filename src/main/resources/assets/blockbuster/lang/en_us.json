@@ -237,6 +237,8 @@
   "blockbuster.config.video.encoder_log": "Per-recording encoder log",
   "blockbuster.config.video.custom_resolution_shaders": "Chosen resolution with shaders",
   "blockbuster.config.video.encoder": "Encoding",
+  "blockbuster.config.video.debug": "Debug mode",
+  "blockbuster.config.comments.video.debug": "Write detailed recorder diagnostics to latest.log (readback timings every 120 frames)",
   "blockbuster.config.comments.video.ffmpeg_path": "Path to ffmpeg: the executable, its folder, or just \"ffmpeg\" when it is on the PATH. Without a working ffmpeg, videos are saved as PNG sequences",
   "blockbuster.config.comments.video.arguments": "ffmpeg arguments used when Encoding is \"Custom\". Placeholders: %WIDTH%, %HEIGHT%, %FPS%, %FILTERS%, %NAME%, %PIX_FMT%",
   "blockbuster.config.comments.video.arguments_audio": "Same as the custom arguments, with the scene audio as a second input (%AUDIO_TRACK%)",

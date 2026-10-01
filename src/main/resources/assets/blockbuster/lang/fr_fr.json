@@ -17,6 +17,8 @@
   "blockbuster.config.video.encoder_log": "Un log d'encodage par prise",
   "blockbuster.config.video.custom_resolution_shaders": "Résolution choisie avec shaders",
   "blockbuster.config.video.encoder": "Encodage",
+  "blockbuster.config.video.debug": "Mode debug",
+  "blockbuster.config.comments.video.debug": "Écrire des diagnostics détaillés de l'enregistreur dans latest.log (temps de lecture toutes les 120 images)",
   "blockbuster.config.comments.video.ffmpeg_path": "Chemin de ffmpeg : l'exécutable, son dossier, ou simplement \"ffmpeg\" s'il est dans le PATH. Sans ffmpeg fonctionnel, les vidéos sont enregistrées en séquences PNG",
   "blockbuster.config.comments.video.arguments": "Arguments ffmpeg utilisés quand l'encodage est « personnalisé ». Variables : %WIDTH%, %HEIGHT%, %FPS%, %FILTERS%, %NAME%, %PIX_FMT%",
   "blockbuster.config.comments.video.arguments_audio": "Comme les arguments personnalisés, avec l'audio de la scène en deuxième entrée (%AUDIO_TRACK%)",

@@ -39,6 +39,13 @@ public class VideoRecorder
 
     private CompletableFuture<Boolean> finalization = CompletableFuture.completedFuture(true);
 
+    /** {@code video.debug} (CDC §2.6): log readback timings every {@value #DEBUG_EVERY} frames. */
+    public boolean debug;
+
+    private static final int DEBUG_EVERY = 120;
+    private int debugCalls;
+    private long debugNanos;
+
     public boolean isRecording()
     {
         return this.recording;
@@ -130,6 +137,8 @@ public class VideoRecorder
             return;
         }
 
+        long start = this.debug ? System.nanoTime() : 0L;
+
         try
         {
             this.source.capture(this.submit);
@@ -139,6 +148,20 @@ public class VideoRecorder
             LOGGER.error("Frame capture failed", e);
 
             this.abort = true;
+        }
+
+        if (this.debug)
+        {
+            this.debugNanos += System.nanoTime() - start;
+
+            if (++this.debugCalls == DEBUG_EVERY)
+            {
+                LOGGER.info("[debug] {} frames delivered, capture + hand-off {} ms/frame over the last {}",
+                    this.frames, String.format("%.2f", this.debugNanos / 1e6 / DEBUG_EVERY), DEBUG_EVERY);
+
+                this.debugCalls = 0;
+                this.debugNanos = 0L;
+            }
         }
 
         if (this.abort)

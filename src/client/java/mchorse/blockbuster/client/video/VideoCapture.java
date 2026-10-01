@@ -51,6 +51,7 @@ public class VideoCapture implements MinemaBackend.Capture
             return;
         }
 
+        this.recorder.debug = VideoConfig.debug();
         this.recorder.startRecording(params, this.frameSource(params), ffmpegPath, ffmpegAvailable, encoderLog);
         this.active = this.recorder.isRecording();
 
