@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '1.6-SNAPSHOT'
+	id 'fabric-loom' version '1.6.12'
 }
 
 // Release version is `mod_version` plus the game version, so the shipped jar is
@@ -91,6 +91,10 @@ dependencies {
 	// Loom source-remap of that jar (intermediary -> yarn), which is a one-off
 	// of roughly 20-30 s on this machine and never recurs.
 	modClientCompileOnly "maven.modrinth:iris:${project.iris_version}"
+
+	testImplementation platform("org.junit:junit-bom:5.10.2")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
 processResources {
@@ -101,13 +105,10 @@ processResources {
 	}
 }
 
-// This project has no test sources. The Java plugin still creates the test
-// task graph and wires `check` -> `test`, so disable it outright and keep
-// `build` off that path entirely.
-tasks.matching {
-	it.name in ["test", "compileTestJava", "processTestResources", "testClasses"]
-}.configureEach {
-	enabled = false
+// CDC §2.7: headless unit tests (no OpenGL) live in src/test and run with
+// `build` through `check`.
+test {
+	useJUnitPlatform()
 }
 
 tasks.withType(JavaCompile).configureEach {
