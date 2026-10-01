@@ -189,7 +189,7 @@
   "aperture.gui.modifiers.enabled": "Enabled",
   "aperture.gui.panels.context.look_block": "Get center block coordinates at cursor",
   "aperture.gui.cancel": "Cancel",
-  "aperture.gui.minema.premature_stop": "Minema prematurely stopped recording!\n\nPlease exit the camera editor and check the chat for more information...",
+  "aperture.gui.minema.premature_stop": "The recording stopped early!\n\nExit the camera editor: the chat says why.",
   "aperture.gui.panels.circular_x": "Center point X",
   "aperture.gui.modifiers.tooltips.active": "Click on any section of this element to toggle the work of this modifier on the given camera property.",
   "aperture.gui.profiles.rename_tooltip": "Rename the profile",

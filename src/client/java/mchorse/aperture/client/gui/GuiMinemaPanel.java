@@ -12,6 +12,8 @@ import mchorse.aperture.camera.minema.RecordingRange;
 import mchorse.aperture.client.gui.panels.modifiers.GuiLookModifierPanel;
 import mchorse.aperture.client.gui.utils.GuiTextHelpElement;
 import mchorse.aperture.events.CameraEditorEvent;
+import mchorse.blockbuster.Blockbuster;
+import mchorse.blockbuster.client.gui.GuiCaptureSummary;
 import mchorse.mclib.client.gui.framework.elements.GuiElement;
 import mchorse.mclib.client.gui.framework.elements.buttons.GuiButtonElement;
 import mchorse.mclib.client.gui.framework.elements.buttons.GuiCirculateElement;
@@ -216,7 +218,11 @@ public class GuiMinemaPanel extends GuiElement
         this.flex().hTo(this.fields.flex(), 1F);
 
         this.fields.add(Elements.label(IKey.lang("aperture.gui.minema.title"), 12).background());
-        this.fields.add(this.name, this.mode);
+        /* wixo.1 (CDC R7): effective size and encoding of the next take. */
+        GuiCaptureSummary summary = new GuiCaptureSummary(mc, Blockbuster.videoWidth::get, Blockbuster.videoHeight::get);
+
+        summary.flex().h(12);
+        this.fields.add(this.name, this.mode, summary);
         this.fields.add(this.customWrapper, this.trackingElements, Elements.row(mc, 5, 0, 20, this.movies, this.record));
 
         this.add(this.fields);
