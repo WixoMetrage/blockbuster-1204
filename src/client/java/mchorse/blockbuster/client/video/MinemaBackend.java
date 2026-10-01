@@ -288,7 +288,7 @@ public class MinemaBackend implements MinemaIntegration.Backend
         boolean shaders = ShaderPackVideoCompat.isShaderPackInUse();
 
         VideoMessages.info("blockbuster.video.msg.start", params.width(), params.height(),
-            ffmpegAvailable ? "H.264" : "PNG",
+            !ffmpegAvailable ? "PNG" : params.format().hasAlpha() ? "ffmpeg (alpha)" : VideoConfig.encoderLabel(),
             new VideoMessages.Tr(shaders ? "blockbuster.video.msg.shaders_on" : "blockbuster.video.msg.shaders_off"));
 
         if (size.mode() == CaptureResolution.Mode.SCALED)
@@ -337,7 +337,7 @@ public class MinemaBackend implements MinemaIntegration.Backend
              * folded — the BGRA arm never reached the class file, so P203's
              * alpha capture and (via fps/motion_blur/held_frames below) P199's
              * motion blur shipped as dead code. */
-            VideoConfig.alpha() ? VideoFormat.BGRA : VideoFormat.BGR,
+            EncoderPresets.inputFormat(VideoConfig.opaqueTemplate(audio != null), VideoConfig.alpha()),
             moviesDir(),
             resolved,
             audio

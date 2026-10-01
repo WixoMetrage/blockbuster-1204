@@ -388,6 +388,8 @@ public class Blockbuster implements ModInitializer
     public static ValueBoolean videoEncoderLog = new ValueBoolean("encoder_log", VideoConfig.DEFAULT_ENCODER_LOG);
     /** wixo.1: render at the chosen resolution even with an Iris shader pack (CDC R2). */
     public static ValueBoolean videoCustomResolutionShaders = new ValueBoolean("custom_resolution_shaders", VideoConfig.DEFAULT_CUSTOM_RESOLUTION_SHADERS);
+    /** wixo.1: encoding preset id ({@link mchorse.blockbuster.client.video.EncoderPresets}); empty = not chosen yet (migrated on read). */
+    public static ValueString videoEncoder = new ValueString("encoder", "");
 
     /* ------------------------------------------------------------------ */
     /* screenshot category — S18's transparent still (S22/P298).          */
@@ -600,6 +602,7 @@ public class Blockbuster implements ModInitializer
         builder.register(videoExportPath);
         builder.register(videoEncoderLog);
         builder.register(videoCustomResolutionShaders);
+        builder.register(videoEncoder);
         builder.getCategory().markClientSide();
 
         /* Screenshot category (S18 P204's transparent still, registered by

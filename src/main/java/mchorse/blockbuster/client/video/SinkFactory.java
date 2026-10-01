@@ -28,8 +28,10 @@ public final class SinkFactory
          * not the folded DEFAULT_* constants — a user may point them at any
          * codec/container, and the alpha pair is what makes P203 reachable. */
         boolean alpha = params.format().hasAlpha();
-        String video = alpha ? VideoConfig.argumentsAlpha() : VideoConfig.arguments();
-        String audio = alpha ? VideoConfig.argumentsAlphaAudio() : VideoConfig.argumentsAudio();
+        /* wixo.1: opaque video uses the chosen encoding preset (CDC R5); the
+         * transparent templates stay user-defined. */
+        String video = alpha ? VideoConfig.argumentsAlpha() : VideoConfig.opaqueTemplate(false);
+        String audio = alpha ? VideoConfig.argumentsAlphaAudio() : VideoConfig.opaqueTemplate(true);
 
         return select(params, ffmpegPath, ffmpegAvailable, encoderLog, video, audio);
     }

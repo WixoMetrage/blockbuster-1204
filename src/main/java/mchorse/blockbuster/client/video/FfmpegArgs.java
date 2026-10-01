@@ -55,6 +55,7 @@ public final class FfmpegArgs
             token = token.replace("%WIDTH%", width);
             token = token.replace("%HEIGHT%", height);
             token = token.replace("%FPS%", fps);
+            token = token.replace("%PIX_FMT%", params.format().ffmpegPixFmt());
             token = token.replace("%FILTERS%", filters);
             token = token.replace("%NAME%", name);
 

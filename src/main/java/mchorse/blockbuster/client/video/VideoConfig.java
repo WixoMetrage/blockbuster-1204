@@ -129,6 +129,37 @@ public final class VideoConfig
         return Blockbuster.videoCustomResolutionShaders.get();
     }
 
+    /**
+     * {@code video.encoder} — the encoding preset id, resolved: a config from
+     * before wixo.1 (empty) gets {@code custom} when its templates were edited,
+     * the default preset otherwise ({@link EncoderPresets#resolve}).
+     */
+    public static String encoder()
+    {
+        return EncoderPresets.resolve(Blockbuster.videoEncoder.get(), arguments(), argumentsAudio());
+    }
+
+    /** The opaque ffmpeg template a recording uses: the preset's, or the user's own for {@code custom}. */
+    public static String opaqueTemplate(boolean audio)
+    {
+        EncoderPreset preset = EncoderPresets.get(encoder());
+
+        if (preset == null)
+        {
+            return audio ? argumentsAudio() : arguments();
+        }
+
+        return preset.template(audio);
+    }
+
+    /** Short name of the encoding used, for the "recording started" message. */
+    public static String encoderLabel()
+    {
+        EncoderPreset preset = EncoderPresets.get(encoder());
+
+        return preset == null ? "ffmpeg (custom)" : preset.label();
+    }
+
     /** Default for {@code video.custom_resolution_shaders}. */
     public static final boolean DEFAULT_CUSTOM_RESOLUTION_SHADERS = true;
 
