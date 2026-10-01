@@ -89,4 +89,10 @@ public class PngSequenceSink implements FrameSink
     {
         /* Nothing to finalize: each PNG is complete on write. */
     }
+
+    @Override
+    public String output()
+    {
+        return new File(this.parentDir, this.name).getAbsolutePath();
+    }
 }

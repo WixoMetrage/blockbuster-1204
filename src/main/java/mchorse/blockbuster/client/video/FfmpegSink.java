@@ -8,6 +8,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +33,12 @@ import java.util.concurrent.TimeUnit;
 public class FfmpegSink implements FrameSink
 {
     private static final Logger LOGGER = LoggerFactory.getLogger("blockbuster-video");
+
+    /** How long the finalizer waits for ffmpeg to write the file (off the render thread). */
+    static final int FINALIZE_TIMEOUT_MINUTES = 10;
+
+    /** Log lines shown in chat when ffmpeg fails. */
+    static final int DIAGNOSTIC_LINES = 4;
 
     private final List<String> args;
     private final File workingDir;
@@ -117,6 +128,11 @@ public class FfmpegSink implements FrameSink
         }
     }
 
+    /**
+     * Close stdin (ffmpeg then writes the container trailer), wait for the
+     * process and check its exit code (wixo.1, CDC R6). Runs on the finalizer
+     * thread, so the generous timeout never freezes the game.
+     */
     @Override
     public void end() throws IOException
     {
@@ -127,29 +143,108 @@ public class FfmpegSink implements FrameSink
                 this.channel.close();
             }
         }
+        catch (IOException e)
+        {
+            /* ffmpeg already gone (broken pipe): its exit code below says why. */
+            LOGGER.warn("Closing ffmpeg's input failed: {}", e.getMessage());
+        }
         finally
         {
             this.channel = null;
+        }
 
-            if (this.process != null)
+        if (this.process == null)
+        {
+            return;
+        }
+
+        Process process = this.process;
+
+        this.process = null;
+
+        try
+        {
+            if (!process.waitFor(FINALIZE_TIMEOUT_MINUTES, TimeUnit.MINUTES))
             {
-                try
-                {
-                    if (!this.process.waitFor(1, TimeUnit.MINUTES))
-                    {
-                        LOGGER.warn("ffmpeg did not exit within a minute; destroying");
-                    }
-                }
-                catch (InterruptedException e)
-                {
-                    Thread.currentThread().interrupt();
-                }
-                finally
-                {
-                    this.process.destroy();
-                    this.process = null;
-                }
+                process.destroyForcibly();
+
+                throw new IOException("ffmpeg did not finish within " + FINALIZE_TIMEOUT_MINUTES + " minutes and was stopped");
             }
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
+
+            throw new IOException("interrupted while waiting for ffmpeg");
+        }
+
+        int code = process.exitValue();
+
+        if (code != 0)
+        {
+            throw new IOException("ffmpeg exited with code " + code);
+        }
+    }
+
+    /** The output file: the template's last argument, relative to the export folder. */
+    @Override
+    public String output()
+    {
+        String last = this.args.isEmpty() ? "" : this.args.get(this.args.size() - 1);
+        File file = new File(last);
+
+        if (!file.isAbsolute() && this.workingDir != null)
+        {
+            file = new File(this.workingDir, last);
+        }
+
+        return file.getAbsolutePath();
+    }
+
+    @Override
+    public List<String> diagnostic()
+    {
+        return tail(this.logFile, DIAGNOSTIC_LINES);
+    }
+
+    /** The last {@code count} non-blank lines of {@code file} (ffmpeg's log). */
+    static List<String> tail(File file, int count)
+    {
+        if (file == null || !file.isFile())
+        {
+            return Collections.emptyList();
+        }
+
+        try
+        {
+            List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+            ArrayDeque<String> last = new ArrayDeque<>(count);
+
+            for (String line : lines)
+            {
+                /* ffmpeg rewrites its progress line with \r: keep the last state only. */
+                int cr = line.lastIndexOf('\r');
+                String clean = (cr >= 0 ? line.substring(cr + 1) : line).trim();
+
+                if (clean.isEmpty())
+                {
+                    continue;
+                }
+
+                if (last.size() == count)
+                {
+                    last.removeFirst();
+                }
+
+                last.addLast(clean);
+            }
+
+            return new ArrayList<>(last);
+        }
+        catch (IOException e)
+        {
+            return Collections.singletonList("(log unreadable: " + e.getMessage() + ")");
         }
     }
 }

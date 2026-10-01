@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * The recorder core: asks a {@link FrameSource} for one output frame at a time
@@ -35,6 +36,8 @@ public class VideoRecorder
     private int frames;
 
     private final FrameSource.Consumer submit = this::submit;
+
+    private CompletableFuture<Boolean> finalization = CompletableFuture.completedFuture(true);
 
     public boolean isRecording()
     {
@@ -101,6 +104,7 @@ public class VideoRecorder
         catch (IOException e)
         {
             LOGGER.error("Failed to open video sink; aborting recording", e);
+            VideoMessages.error("blockbuster.video.msg.start_failed", e.getMessage());
 
             this.sink = null;
             this.failed = true;
@@ -216,34 +220,88 @@ public class VideoRecorder
             this.source = null;
         }
 
-        if (this.queue != null)
+        FrameQueue queue = this.queue;
+        FrameSink sink = this.sink;
+        int frames = this.frames;
+
+        this.queue = null;
+        this.sink = null;
+
+        if (queue != null && queue.error() != null)
         {
-            this.queue.stop();
-
-            if (this.queue.error() != null)
-            {
-                this.failed = true;
-            }
-
-            this.queue = null;
-        }
-
-        try
-        {
-            if (this.sink != null)
-            {
-                this.sink.end();
-            }
-        }
-        catch (IOException e)
-        {
-            LOGGER.warn("Failed to finalize video sink", e);
-
             this.failed = true;
         }
-        finally
+
+        CompletableFuture<Boolean> done = new CompletableFuture<>();
+        Thread finalizer = new Thread(() -> done.complete(finish(queue, sink, frames)), "blockbuster-video-finalizer");
+
+        this.finalization = done;
+        finalizer.start();
+    }
+
+    /**
+     * The end of a recording, off the render thread (wixo.1, CDC R6): drain the
+     * encoder queue, close the sink — for ffmpeg that is the container trailer,
+     * which can take a while at 4K — check the result and tell the user.
+     *
+     * @return whether the file was written successfully
+     */
+    static boolean finish(FrameQueue queue, FrameSink sink, int frames)
+    {
+        String error = null;
+
+        if (queue != null)
         {
-            this.sink = null;
+            queue.stop();
+
+            if (queue.error() != null)
+            {
+                error = queue.error().getMessage();
+            }
         }
+
+        if (sink != null)
+        {
+            try
+            {
+                sink.end();
+            }
+            catch (IOException e)
+            {
+                error = error == null ? e.getMessage() : error + " — " + e.getMessage();
+            }
+        }
+
+        if (sink == null)
+        {
+            return false;
+        }
+
+        if (error == null)
+        {
+            LOGGER.info("Video finished: {} ({} frames)", sink.output(), frames);
+            VideoMessages.success("blockbuster.video.msg.done", sink.output(), frames);
+
+            return true;
+        }
+
+        LOGGER.error("Video failed: {} — {}", sink.output(), error);
+        VideoMessages.error("blockbuster.video.msg.failed", sink.output(), error);
+
+        for (String line : sink.diagnostic())
+        {
+            VideoMessages.error("blockbuster.video.msg.log_line", line);
+        }
+
+        return false;
+    }
+
+    /**
+     * The finalization of the last stopped recording: completes with
+     * {@code true} once the file is written, {@code false} when it failed.
+     */
+    public CompletableFuture<Boolean> finalization()
+    {
+        return this.finalization;
     }
 }

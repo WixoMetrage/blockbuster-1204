@@ -43,6 +43,9 @@ public final class VideoCaptureWiring
 
     private static boolean installed;
 
+    /** Whether ffmpeg was probed this session (once, on the first world join). */
+    private static boolean ffmpegChecked;
+
     private VideoCaptureWiring()
     {}
 
@@ -87,6 +90,32 @@ public final class VideoCaptureWiring
          * still-screenshot path uses, so neither the HUD nor the (already
          * hidden, P202) camera-editor root can leak into a frame. */
         WorldRenderEvents.LAST.register(context -> CAPTURE.onFrame());
+
+        /* wixo.1 (CDC R5): say it once per session, on joining a world, when
+         * ffmpeg cannot be run — not only when a take is already starting.
+         * The probe spawns a process, so it runs off the client thread. */
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+        {
+            if (ffmpegChecked)
+            {
+                return;
+            }
+
+            ffmpegChecked = true;
+
+            Thread probe = new Thread(() ->
+            {
+                String path = FfmpegLocator.resolve(VideoConfig.ffmpegPath());
+
+                if (!FfmpegLocator.checkAvailable(path))
+                {
+                    VideoMessages.error("blockbuster.video.msg.no_ffmpeg_join", path);
+                }
+            }, "blockbuster-ffmpeg-probe");
+
+            probe.setDaemon(true);
+            probe.start();
+        });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
         {

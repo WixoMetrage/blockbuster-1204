@@ -9,6 +9,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -82,14 +83,14 @@ class VideoRecorderTest
         }
 
         @Override
-        public void end()
+        public void end() throws IOException
         {
             this.ended = true;
         }
     }
 
     @Test
-    void framesInFlightAreFlushedInOrderAtStop()
+    void framesInFlightAreFlushedInOrderAtStop() throws Exception
     {
         DelayedSource source = new DelayedSource(PboFrameSourceRing.LATENCY);
         CollectingSink sink = new CollectingSink();
@@ -105,6 +106,8 @@ class VideoRecorderTest
         assertEquals(10 - PboFrameSourceRing.LATENCY, recorder.frames(), "frames still in flight are not counted yet");
 
         recorder.stopRecording();
+
+        assertTrue(recorder.finalization().get(10, TimeUnit.SECONDS));
 
         assertEquals(10, recorder.frames());
         assertEquals(List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9), sink.frames);
@@ -145,6 +148,43 @@ class VideoRecorderTest
 
         assertFalse(recorder.isRecording());
         assertTrue(recorder.hasFailed());
+    }
+
+    @Test
+    void encoderFailureAtCloseIsReportedInRedWithTheLog() throws Exception
+    {
+        List<String> messages = Collections.synchronizedList(new ArrayList<>());
+        CollectingSink failing = new CollectingSink()
+        {
+            @Override
+            public void end() throws IOException
+            {
+                throw new IOException("ffmpeg exited with code 1");
+            }
+
+            @Override
+            public List<String> diagnostic()
+            {
+                return List.of("Unknown encoder 'h264_nvenc'");
+            }
+        };
+        VideoRecorder recorder = new VideoRecorder();
+
+        VideoMessages.sink = (level, key, args) -> messages.add(level + " " + key);
+
+        try
+        {
+            recorder.startRecording(PARAMS, new DelayedSource(0), failing);
+            recorder.recordFrame();
+            recorder.stopRecording();
+
+            assertFalse(recorder.finalization().get(10, TimeUnit.SECONDS));
+            assertEquals(List.of("ERROR blockbuster.video.msg.failed", "ERROR blockbuster.video.msg.log_line"), messages);
+        }
+        finally
+        {
+            VideoMessages.sink = (level, key, args) -> {};
+        }
     }
 
     /** PboFrameSource lives in the client source set; its latency is RING - 1. */
