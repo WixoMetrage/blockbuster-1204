@@ -65,6 +65,7 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 1. **Dimensions impaires.** Une fenêtre (avec barre de titre) a souvent une hauteur impaire, par exemple 1920×1009. ffmpeg exige des dimensions paires. Le mod bascule alors sur le chemin « résolution personnalisée ». Ce chemin est **interdit quand Iris est actif**, donc le mod se replie sur la taille brute (impaire) de la fenêtre. `VideoParams` arrondit à une valeur paire, la taille lue ne correspond plus à la taille annoncée, et **chaque image est ignorée**. On obtient une vidéo noire ou figée sur la dernière bonne image, sans aucun message.
    - Fichiers : `CaptureResolution.java` (l.145-164), `MinemaBackend.java` (l.150-156, 260-283), `VideoParams.java` (l.38-39), `FramebufferFrameSource.java` (l.96-130).
 2. **Résolution personnalisée impossible avec Iris.** Le rendu hors écran (`CustomResolutionCapture`) est bloqué volontairement sous Iris et en Fabulous.
+   - *Constat de Claude Code, à la relecture (V1.1) :* ce blocage reposait sur une hypothèse fausse. Iris 1.7.2 relit `MinecraftClient.getFramebuffer()` à chaque image. `IrisRenderingPipeline.beginLevelRendering` redimensionne ses cibles de rendu à cette taille, et `FinalPassRenderer` rattache la texture couleur quand elle change. Le framebuffer de capture est donc suivi nativement par Iris : c'est la piste (a) qui a été retenue.
 3. **Une taille saisie une fois reste en config.** Par exemple, du 3840×2160 saisi sur l'écran 4K s'applique ensuite à tous les écrans. Aucune taille effective n'est affichée.
 4. **Taille modifiée pendant l'enregistrement** (redimensionnement, F11, alt-tab) : la vidéo se fige pour tout le reste de la prise, sans message.
 5. **Performance.** La lecture GPU est synchrone, sans PBO, avec une copie mémoire de trop par image. La finalisation de ffmpeg peut **figer le jeu jusqu'à 60 s**. Les erreurs de ffmpeg ne sont pas remontées.
@@ -133,6 +134,8 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 
 ### 4.5 Défauts constatés après livraison
 *(à remplir par Wixo après les tests)*
+
+*Remarque de Claude Code (livraison wixo.1) :* le préréglage NVENC exige un pilote NVIDIA 610 ou plus récent avec ffmpeg 9.0.1. Le pilote 596.36 installé est refusé, et le message rouge en jeu l'indique.
 
 ---
 
