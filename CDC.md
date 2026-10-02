@@ -175,7 +175,7 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 
 ---
 
-## 6. Chantier 3 : replay (blocs, explosions, monde)  📝 (décisions prises, à détailler)
+## 6. Chantier 3 : replay (blocs, explosions, monde)  ✅ (2.7.3-wixo.3, validé en jeu le 2026-10-02)
 
 **Workflow de Wixo :** saut dans la timeline, ré-enregistrement au milieu d'une prise, enregistrement d'un acteur pendant que les autres rejouent. Solo. Scènes de 4 à 10 acteurs, parfois 20 ou plus : **aucune limite** d'acteurs.
 
@@ -194,6 +194,18 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 - Ré-enregistrement au milieu : **tout ce qui suit le début de la portion refaite est supprimé** (mouvements et actions). La prise se termine à la fin du nouvel enregistrement.
 
 **Plan validé (lots) :** R1 réparation du monde (journal tick par tick : blocs, conteneurs, entités) · R2 timeline (reculer = annuler le journal, avancer = rejouer les actions qui modifient le monde dans l'ordre chronologique) · R3 actions fidèles (clic droit, seau, aucun drop, explosions, attaques, fissures, objet en main) · R4 enregistrement (actions rangées sur le tick client, ré-enregistrement qui tronque).
+
+**Résultat des tests en jeu (2026-10-02) :**
+- ✅ Coffre cassé puis restauré plein, contenu retiré sans casser restauré, entités tuées qui reviennent, réparation au-delà de 64 blocs, scène réparée à l'arrêt.
+- ✅ Timeline : reculer, avancer, lancer depuis le milieu. Le bug de navigation que Wixo avait depuis des années est réglé.
+- ✅ Coffre ouvert par un acteur qui reste ouvert, eau posée au bon endroit, explosion identique à chaque lecture.
+- ✅ Lit posé puis cassé en créatif. La casse n'était pas enregistrée : l'événement Fabric `PlayerBlockBreakEvents.AFTER` ne se déclenche pas pour un lit, une porte ou une grande plante cassés en créatif. Elle est maintenant capturée sur `tryBreakBlock`.
+- Non testés par Wixo (peu utilisés) : attaques face à un mob (les mobs bougent), ré-enregistrement au milieu. À signaler s'ils posent problème.
+
+**Corrigé en marge du chantier :**
+- Le FOV de l'éditeur caméra revenait au FOV vanilla à l'arrêt d'une lecture (régression de la correction C4) : un FOV d'aperçu est appliqué tant que l'éditeur est ouvert.
+- Nouvelle option `aperture.editor.return_on_exit` (activée par défaut) : en quittant l'éditeur caméra, le joueur revient à l'endroit où il l'avait ouvert.
+- Pour voir son personnage pendant le cadrage et avoir un aperçu en direct quand on règle un plan : c'est le mode extérieur d'Aperture (`aperture.outside.enabled`). Il fonctionne, rien à coder.
 
 **Causes principales relevées :**
 - explosions non enregistrées ;

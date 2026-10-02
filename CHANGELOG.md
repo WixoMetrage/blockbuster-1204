@@ -1,5 +1,37 @@
 # Changelog — Blockbuster (fork Wixo)
 
+## 2.7.3-wixo.3 — chantier 3 : replay (validé en jeu le 2026-10-02)
+
+### Réparation du monde
+- Le monde est remis exactement en état à l'arrêt d'une lecture ou d'un enregistrement : blocs, **contenu des coffres** (avant, un coffre cassé revenait vide), contenu retiré d'un conteneur sans le casser, **entités tuées ou détruites** qui reviennent, entités apparues qui disparaissent.
+- **Plus de limite de distance** (avant : 64 blocs autour d'un seul acteur). Option « Réparation du monde › Limiter la distance » pour la réactiver.
+- Restauration silencieuse : pas de drop, pas de sable qui tombe, pas de redstone déclenchée.
+- Les animaux d'un chunk chargé pendant une prise ne disparaissent plus à la réparation.
+
+### Timeline
+- **Reculer** annule les changements du monde au lieu de rejouer les actions : plus de blocs fantômes, et c'est rapide.
+- **Avancer**, lancer depuis le milieu ou faire apparaître une scène à un tick donné rejoue les actions qui modifient le monde, dans l'ordre chronologique de tous les acteurs (avant : acteur par acteur), sans son, drop, attaque, chat ni commande.
+- L'action du tick de départ n'est plus appliquée deux fois. L'équipement des acteurs suit le tick atteint.
+
+### Actions rejouées fidèlement
+- **Clic droit** rejoué comme le serveur l'a fait : si le bloc réagit (porte, levier, coffre, TNT), l'objet n'est pas utilisé ; un bloc posé l'est une seule fois, avec son état exact (portes, lits et grandes plantes complets).
+- **Seau** enregistré là où le liquide est vraiment arrivé (herbe haute, bloc qui accepte l'eau), sans second versement au replay.
+- **Explosions** enregistrées (blocs détruits) et rejouées à l'identique. Pendant une lecture, une explosion qui ne vient pas du joueur qui enregistre ne casse plus rien elle-même.
+- **Aucun drop** pendant un replay, contenu des coffres compris.
+- **Seuls les vrais coups** sont enregistrés comme attaques (option « Attaque à chaque mouvement de bras », désactivée ; l'ancienne option reste dans le fichier de config sans être lue).
+- **Fissures de minage** propres à chaque acteur, effacées quand le bloc casse.
+- Changer d'objet et l'utiliser dans le même tick : l'acteur utilise bien le nouvel objet.
+- Casser un lit, une porte ou une grande plante en créatif est enregistré.
+- Un coffre ouvert par un acteur reste ouvert jusqu'à ce qu'il le referme.
+
+### Enregistrement
+- Les actions sont rangées sur les mêmes ticks que les mouvements (tick client) : plus de dérive en cas de lag.
+- **Ré-enregistrer au milieu** remplace tout à partir du point de reprise, mouvements et actions ; la prise s'arrête où tu t'arrêtes. Le monde de départ contient ce que ta prise avait fait avant ce point.
+
+### Caméra (Aperture)
+- Le FOV de la caméra est gardé dans l'éditeur à l'arrêt d'une lecture (régression de wixo.2).
+- En quittant l'éditeur caméra, tu reviens là où tu l'avais ouvert (option « Revenir en quittant », activée).
+
 ## 2.7.3-wixo.2 — chantier 2 : caméra, FOV et coupes (validé en jeu le 2026-10-02)
 
 ### Prises Aperture calées à l'image près
