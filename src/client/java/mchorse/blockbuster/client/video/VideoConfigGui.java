@@ -53,6 +53,12 @@ public final class VideoConfigGui
             preset(mc, "blockbuster.video.gui.preset_4k", 3840, 2160, width, height),
             preset(mc, "blockbuster.video.gui.preset_window", 0, 0, width, height));
 
+        /* Vertical (9:16) videos rendered directly: same framing as Aperture's
+         * 9:16 letterbox, without rendering the discarded sides. */
+        GuiElement vertical = Elements.row(mc, 5, 0, 20,
+            preset(mc, "blockbuster.video.gui.preset_vertical_1080", 1080, 1920, width, height),
+            preset(mc, "blockbuster.video.gui.preset_vertical_4k", 2160, 3840, width, height));
+
         GuiCaptureSummary summary = new GuiCaptureSummary(mc, Blockbuster.videoWidth::get, Blockbuster.videoHeight::get);
 
         summary.flex().h(12);
@@ -61,6 +67,7 @@ public final class VideoConfigGui
             Elements.label(IKey.lang("blockbuster.config.video.resolution"), 0).anchor(0, 0.5F)
                 .tooltip(IKey.lang("blockbuster.config.comments.video.resolution")),
             presets,
+            vertical,
             row(mc, Blockbuster.videoWidth, width),
             row(mc, Blockbuster.videoHeight, height),
             summary);

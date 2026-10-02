@@ -95,6 +95,10 @@ public class GuiCaptureConfiguration extends GuiBase
             this.sizeButton(mc, "blockbuster.video.gui.preset_4k", 3840, 2160),
             this.sizeButton(mc, "blockbuster.video.gui.preset_window", 0, 0));
 
+        GuiElement verticalRow = Elements.row(mc, 5,
+            this.sizeButton(mc, "blockbuster.video.gui.preset_vertical_1080", 1080, 1920),
+            this.sizeButton(mc, "blockbuster.video.gui.preset_vertical_4k", 2160, 3840));
+
         this.summary = new GuiCaptureSummary(mc,
             () -> (int) Math.round(this.videoWidth.value),
             () -> (int) Math.round(this.videoHeight.value));
@@ -120,6 +124,7 @@ public class GuiCaptureConfiguration extends GuiBase
             this.fileExistsLabel,
             sizeRow.marginTop(8),
             presetRow,
+            verticalRow,
             this.summary,
             Elements.label(IKey.lang("minema.gui.fps")).marginTop(8).marginBottom(2),
             this.frameRate,

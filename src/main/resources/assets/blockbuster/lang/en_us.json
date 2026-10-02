@@ -261,6 +261,8 @@
   "blockbuster.video.gui.preset_1440": "1440p",
   "blockbuster.video.gui.preset_4k": "4K",
   "blockbuster.video.gui.preset_window": "Window size",
+  "blockbuster.video.gui.preset_vertical_1080": "Vertical 1080×1920",
+  "blockbuster.video.gui.preset_vertical_4k": "Vertical 2160×3840",
   "blockbuster.video.gui.effective": "Video: %s×%s — %s — %s",
   "blockbuster.video.gui.encoder": "Encoding",
   "blockbuster.video.mode.native": "window size",
