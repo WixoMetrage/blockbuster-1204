@@ -32,7 +32,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
@@ -136,7 +135,8 @@ public class ActionHandler
             return ActionResult.PASS;
         });
 
-        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> onPlayerBreaksBlock(player, pos));
+        /* Block breaks: ServerPlayerInteractionManagerMixin (wixo) — Fabric's
+         * PlayerBlockBreakEvents.AFTER misses a bed or a door broken in creative. */
 
         ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> onServerChatEvent(sender, message.getSignedContent()));
 

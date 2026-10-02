@@ -26,6 +26,7 @@
 		"PlayerInventoryPickupMixin",
 		"ServerPlayerEntityCameraMixin",
 		"ServerPlayerEntityMixin",
+		"ServerPlayerInteractionManagerMixin",
 		"ServerWorldMixin",
 		"ViewerCountManagerMixin",
 		"WorldMixin"
