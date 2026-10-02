@@ -494,7 +494,7 @@ public class Scene
 
         if (firstActor != null)
         {
-            CommonProxy.damage.addDamageControl(this, firstActor);
+            CommonProxy.damage.addDamageControl(this, firstActor, this::getTick);
         }
 
         this.audioHandler.startAudio(tick);
@@ -576,7 +576,7 @@ public class Scene
 
             if (j == 0 && actor.actor != null)
             {
-                CommonProxy.damage.addDamageControl(this, actor.actor);
+                CommonProxy.damage.addDamageControl(this, actor.actor, this::getTick);
             }
 
             actor.playing = false;

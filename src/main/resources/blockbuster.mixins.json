@@ -14,6 +14,7 @@
 		"EntityMixin",
 		"EntityStepSoundAccessor",
 		"LevelPropertiesAccessor",
+		"LivingEntityDamageControlMixin",
 		"LivingEntityAccessor",
 		"MobEntityMorphTargetMixin",
 		"PlayerManagerAccessor",

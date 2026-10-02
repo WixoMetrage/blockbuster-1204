@@ -187,6 +187,14 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 - **Aucun drop** pendant un replay.
 - Seuls les **vrais coups** portés à une entité sont rejoués. Fin des attaques fantômes à chaque mouvement de bras.
 
+**Décisions complémentaires (2026-10-02) :**
+- Réparation **sans limite de distance** : tout ce qui change dans le monde pendant une lecture ou un enregistrement est réparé. Le rayon reste disponible en option.
+- TNT allumée par un acteur pendant un replay : l'explosion réelle ne casse aucun bloc (c'est le résultat enregistré qui est appliqué). Son, particules et souffle sur les entités sont conservés.
+- Attaques : seules les nouvelles prises sont exactes (`record_attack_on_swipe` désactivé, avec migration de la config). Les anciennes prises restent telles quelles, car on ne peut pas y distinguer un vrai coup d'un mouvement de bras.
+- Ré-enregistrement au milieu : **tout ce qui suit le début de la portion refaite est supprimé** (mouvements et actions). La prise se termine à la fin du nouvel enregistrement.
+
+**Plan validé (lots) :** R1 réparation du monde (journal tick par tick : blocs, conteneurs, entités) · R2 timeline (reculer = annuler le journal, avancer = rejouer les actions qui modifient le monde dans l'ordre chronologique) · R3 actions fidèles (clic droit, seau, aucun drop, explosions, attaques, fissures, objet en main) · R4 enregistrement (actions rangées sur le tick client, ré-enregistrement qui tronque).
+
 **Causes principales relevées :**
 - explosions non enregistrées ;
 - clic droit rejoué deux fois (objet puis bloc), d'où des blocs fantômes ;

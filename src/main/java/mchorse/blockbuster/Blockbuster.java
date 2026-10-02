@@ -159,6 +159,8 @@ public class Blockbuster implements ModInitializer
     public static ValueBoolean actorFallDamage = new ValueBoolean("actor_fall_damage", true);
     public static ValueBoolean actorPlaybackBodyYaw = new ValueBoolean("actor_playback_body_yaw", true);
     public static ValueBoolean damageControl = new ValueBoolean("damage_control", true);
+    /* wixo (CDC §6, R1): no radius by default; damage_control_distance only applies when this is on */
+    public static ValueBoolean damageControlLimit = new ValueBoolean("damage_control_limit", false);
     public static ValueInt damageControlDistance = new ValueInt("damage_control_distance", 64, 1, 1024);
     public static ValueBoolean damageControlMessage = new ValueBoolean("damage_control_message", false);
 
@@ -534,6 +536,7 @@ public class Blockbuster implements ModInitializer
 
         /* Damage control category (all server-side). */
         builder.category("damage_control").register(damageControl);
+        builder.register(damageControlLimit);
         builder.register(damageControlDistance);
         builder.register(damageControlMessage);
 

@@ -1,6 +1,10 @@
 package mchorse.blockbuster.mixin;
 
+import java.util.OptionalInt;
+
 import mchorse.blockbuster.recording.capturing.ActionHandler;
+import mchorse.blockbuster.recording.capturing.WorldEventListener;
+import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -29,6 +33,13 @@ public abstract class ServerPlayerEntityMixin
     private void blockbuster$onPlayerTick(CallbackInfo info)
     {
         ActionHandler.onPlayerTick((ServerPlayerEntity) (Object) this);
+    }
+
+    /** wixo (R1): containers next to an opened screen are journaled by damage control. */
+    @Inject(method = "openHandledScreen(Lnet/minecraft/screen/NamedScreenHandlerFactory;)Ljava/util/OptionalInt;", at = @At("HEAD"))
+    private void blockbuster$onOpenHandledScreen(NamedScreenHandlerFactory factory, CallbackInfoReturnable<OptionalInt> cir)
+    {
+        WorldEventListener.onScreenOpened((ServerPlayerEntity) (Object) this);
     }
 
     @Inject(method = "dropItem(Lnet/minecraft/item/ItemStack;ZZ)Lnet/minecraft/entity/ItemEntity;", at = @At("RETURN"))

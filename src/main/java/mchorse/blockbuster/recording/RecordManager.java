@@ -151,7 +151,7 @@ public class RecordManager
         else
         {
             this.setupPlayerData(recorder, player);
-            CommonProxy.damage.addDamageControl(recorder, player);
+            CommonProxy.damage.addDamageControl(recorder, player, () -> recorder.tick);
 
             this.scheduled.put(player, new ScheduledRecording(recorder, (ServerPlayerEntity) player, proxy, (int) (Blockbuster.recordingCountdown.get() * 20), offset));
         }

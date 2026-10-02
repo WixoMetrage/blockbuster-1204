@@ -97,14 +97,6 @@ import java.util.List;
 public class ActionHandler
 {
     /**
-     * Last block entity spotted before a block change (used for damage
-     * control of block entities, P113/P114). Single-slot on purpose —
-     * same-tick multi-block changes only remember the last one, which is
-     * legacy-accurate.
-     */
-    public static BlockEntity lastTE;
-
-    /**
      * Registers the Fabric-event half of the capture matrix (the mixin half
      * registers itself through {@code blockbuster.mixins.json}).
      */
@@ -163,11 +155,8 @@ public class ActionHandler
             }
         });
 
-        /* P113 damage-control feeds. The block half rides
-         * ServerWorldMixin.onBlockChanged; the entity half is this event —
-         * Fabric's ENTITY_LOAD fires on spawn and on chunk load, matching the
-         * two call sites of legacy World.onEntityAdded. */
-        ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> WorldEventListener.onEntityAdded(entity));
+        /* P113 damage-control feeds are all mixins since wixo R1 (see
+         * WorldEventListener): ENTITY_LOAD also fired on chunk loads. */
 
         /* Legacy FMLServerStoppingEvent dropped the damage repository alongside
          * the record manager and scenes (Blockbuster.serverStopping). Kept next
