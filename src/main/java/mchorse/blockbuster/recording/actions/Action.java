@@ -127,4 +127,14 @@ public abstract class Action
     {
         return false;
     }
+
+    /**
+     * wixo (CDC §6, R2): whether this action changes the world (blocks), so a
+     * fast-forward through the timeline must replay it. Attacks, drops, chat,
+     * commands and other one-off effects are not replayed by a seek.
+     */
+    public boolean modifiesWorld()
+    {
+        return false;
+    }
 }

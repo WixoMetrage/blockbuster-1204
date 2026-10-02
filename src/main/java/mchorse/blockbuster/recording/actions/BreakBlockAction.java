@@ -4,6 +4,9 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import mchorse.blockbuster.recording.capturing.DamageControl;
+import mchorse.blockbuster.recording.scene.SceneSeek;
 
 /**
  * Breaking block action
@@ -23,10 +26,32 @@ public class BreakBlockAction extends InteractBlockAction
         this.drop = drop;
     }
 
+    /** wixo (R2): replayed by a fast-forward through the timeline. */
+    @Override
+    public boolean modifiesWorld()
+    {
+        return true;
+    }
+
     @Override
     public void apply(LivingEntity actor)
     {
-        actor.getWorld().breakBlock(this.pos, this.drop);
+        World world = actor.getWorld();
+
+        /* wixo (CDC §6): never a drop during a replay, not even the content of
+         * a container (it scatters whatever the flags). The recorded `drop`
+         * stays in the file, it is just not honoured. A seek breaks silently. */
+        DamageControl.clearInventory(world, this.pos);
+
+        if (SceneSeek.seeking)
+        {
+            world.removeBlock(this.pos, false);
+        }
+        else
+        {
+            world.breakBlock(this.pos, false);
+        }
+
         actor.getWorld().setBlockBreakingInfo(actor.getId(), this.pos, -1);
     }
 

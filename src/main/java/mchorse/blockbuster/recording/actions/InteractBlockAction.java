@@ -48,6 +48,13 @@ public class InteractBlockAction extends Action
         this.pos = pos;
     }
 
+    /** wixo (R2): replayed by a fast-forward through the timeline. */
+    @Override
+    public boolean modifiesWorld()
+    {
+        return true;
+    }
+
     /**
      * Legacy {@code state.getBlock().onBlockActivated(world, pos, state,
      * player, MAIN_HAND, null, pos.getX(), pos.getY(), pos.getZ())} → yarn

@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import mchorse.blockbuster.Blockbuster;
 import mchorse.blockbuster.legacy.LegacyIdMap;
+import mchorse.blockbuster.recording.scene.SceneSeek;
 import net.minecraft.block.BlockState;
 import net.minecraft.command.argument.BlockArgumentParser;
 import net.minecraft.entity.LivingEntity;
@@ -136,6 +137,13 @@ public class PlaceBlockAction extends InteractBlockAction
         return LegacyIdMap.blockState(this.block, this.metadata);
     }
 
+    /** wixo (R2): replayed by a fast-forward through the timeline. */
+    @Override
+    public boolean modifiesWorld()
+    {
+        return true;
+    }
+
     /**
      * Resolve the placed state (P296 {@code State} first, then the legacy
      * {@code (block, metadata)} pair through the P71 id shim), set it, and play
@@ -180,7 +188,7 @@ public class PlaceBlockAction extends InteractBlockAction
 
         BlockSoundGroup sound = world.getBlockState(this.pos).getSoundGroup();
 
-        world.playSound(null, this.pos, sound.getPlaceSound(), SoundCategory.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
+        if (!SceneSeek.seeking) world.playSound(null, this.pos, sound.getPlaceSound(), SoundCategory.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
     }
 
     @Override

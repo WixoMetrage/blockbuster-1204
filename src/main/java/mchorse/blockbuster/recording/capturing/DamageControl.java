@@ -3,6 +3,8 @@ package mchorse.blockbuster.recording.capturing;
 import java.util.UUID;
 import java.util.function.IntSupplier;
 
+import mchorse.blockbuster.CommonProxy;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
@@ -207,8 +209,17 @@ public class DamageControl
      */
     public static void clearInventory(World world, BlockPos pos)
     {
-        if (world.getBlockEntity(pos) instanceof Inventory inventory)
+        BlockEntity be = world.getBlockEntity(pos);
+
+        if (be instanceof Inventory inventory)
         {
+            /* Outside a restore (an actor breaking a chest), journal the content
+             * first, or the restore would bring back an empty chest. */
+            if (!world.isClient() && CommonProxy.damage.isCapturing())
+            {
+                CommonProxy.damage.addContent(world, pos, be.createNbtWithIdentifyingData());
+            }
+
             inventory.clear();
         }
     }

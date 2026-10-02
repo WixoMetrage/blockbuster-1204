@@ -147,6 +147,13 @@ public class Scene
     private int tick = 0;
 
     /**
+     * wixo (R2): the tick the world is at — every action before it applied.
+     * Follows {@link #tick} during playback; a seek without actions leaves it
+     * behind, and the next seek starts from here.
+     */
+    private int worldTick = 0;
+
+    /**
      * Whether this scene gets recorded
      */
     private boolean wasRecording;
@@ -268,6 +275,28 @@ public class Scene
         return this.tick;
     }
 
+    /** {@link SceneSeek} moves the clock the journal stamps changes with. */
+    void setTick(int tick)
+    {
+        this.tick = tick;
+    }
+
+    /**
+     * wixo (R2): bring the world to {@code tick} (undo or replay), and set the
+     * scene and every actor on it.
+     */
+    private void seekWorld(int tick)
+    {
+        SceneSeek.seek(this, this.worldTick, tick);
+
+        this.tick = this.worldTick = tick;
+
+        for (RecordPlayer player : this.actors.values())
+        {
+            player.tick = tick;
+        }
+    }
+
     public int getCurrentTick()
     {
         for (RecordPlayer player : this.actors.values())
@@ -364,6 +393,13 @@ public class Scene
             if (this.tick % 4 == 0 && !this.checkActors()) return;
 
             this.audioHandler.update();
+
+            /* This tick's actions ran in worldTick (START_WORLD_TICK) */
+            if (this.worldTick == this.tick)
+            {
+                this.worldTick++;
+            }
+
             this.tick++;
         }
     }
@@ -497,11 +533,33 @@ public class Scene
             CommonProxy.damage.addDamageControl(this, firstActor, this::getTick);
         }
 
+        this.startWorldAt(tick);
         this.audioHandler.startAudio(tick);
 
         this.wasRecording = false;
         this.paused = false;
         this.tick = tick;
+    }
+
+    /**
+     * wixo (R2): the world starts as it was before the scene's first tick;
+     * starting past it replays the actions that change the world up to
+     * {@code tick}, in order. Legacy started actors at {@code tick} in a world
+     * where none of the earlier actions had happened.
+     */
+    private void startWorldAt(int tick)
+    {
+        this.tick = this.worldTick = 0;
+
+        if (tick > 0)
+        {
+            this.seekWorld(tick);
+
+            for (RecordPlayer player : this.actors.values())
+            {
+                player.applyFrame(player.playing ? tick : tick - 1, player.actor, true);
+            }
+        }
     }
 
     /**
@@ -530,6 +588,7 @@ public class Scene
         this.playing = true;
         this.sendCommand(this.startCommand);
 
+        this.startWorldAt(tick);
         this.audioHandler.startAudio(tick);
 
         this.wasRecording = true;
@@ -582,16 +641,21 @@ public class Scene
             actor.playing = false;
             actor.startPlaying(replay.id, tick, true);
             actor.sync = true;
-            actor.pause();
-
-            for (int i = 0; i <= tick; i++)
-            {
-                actor.record.applyAction(i - actor.record.preDelay, actor.actor);
-            }
-
-            this.applySpawnMorph(actor, replay, tick);
 
             j++;
+        }
+
+        /* wixo (R2): all actors' actions before `tick`, in chronological order
+         * (legacy: actor by actor, and the action at `tick` itself, which the
+         * playback then applied a second time on resume). */
+        this.startWorldAt(tick);
+
+        for (Map.Entry<Replay, RecordPlayer> entry : this.actors.entrySet())
+        {
+            RecordPlayer actor = entry.getValue();
+
+            actor.pause();
+            this.applySpawnMorph(actor, entry.getKey(), tick);
         }
 
         this.audioHandler.pauseAudio(tick);
@@ -645,6 +709,7 @@ public class Scene
         }
 
         CommonProxy.damage.restoreDamageControl(this, this.getWorld());
+        this.worldTick = 0;
 
         this.targetPlayers.forEach((playerState) ->
         {
@@ -903,6 +968,12 @@ public class Scene
      */
     public void resume(int tick)
     {
+        if (tick >= 0 && tick != this.worldTick)
+        {
+            /* wixo (R2): resuming elsewhere than where the world is */
+            this.seekWorld(tick);
+        }
+
         if (tick >= 0)
         {
             this.tick = tick;
@@ -919,9 +990,19 @@ public class Scene
 
     /**
      * Make actors go to the given tick.
+     *
+     * <p>wixo (R2): with {@code actions}, the world goes there too
+     * ({@link SceneSeek}): backwards undoes the journal, forwards replays the
+     * actions that change the world, chronologically. Legacy replayed every
+     * action between the two ticks, actor by actor, whichever the direction.</p>
      */
     public void goTo(int tick, boolean actions)
     {
+        if (actions)
+        {
+            this.seekWorld(tick);
+        }
+
         this.tick = tick;
 
         for (Map.Entry<Replay, RecordPlayer> entry : this.actors.entrySet())

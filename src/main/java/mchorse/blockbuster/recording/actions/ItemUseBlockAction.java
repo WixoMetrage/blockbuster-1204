@@ -56,6 +56,13 @@ public class ItemUseBlockAction extends ItemUseAction
         this.hitZ = hitZ;
     }
 
+    /** wixo (R2): replayed by a fast-forward through the timeline. */
+    @Override
+    public boolean modifiesWorld()
+    {
+        return true;
+    }
+
     /**
      * Legacy {@code item.getItem().onItemUse(player, actor.world, pos, hand,
      * facing, hitX, hitY, hitZ)} → yarn

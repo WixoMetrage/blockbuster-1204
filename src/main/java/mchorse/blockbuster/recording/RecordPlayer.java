@@ -254,6 +254,12 @@ public class RecordPlayer
 
     /**
      * Make an actor go to the given tick
+     *
+     * <p>wixo (R2): the actor only — position and morph. The world (and the
+     * actions that change it) is moved by {@code Scene.goTo} through
+     * {@code SceneSeek}, for all actors at once and in chronological order.
+     * Legacy replayed this actor's actions between the two ticks here, plus the
+     * target tick's, which the playback then applied again.</p>
      */
     public void goTo(int tick, boolean actions)
     {
@@ -267,25 +273,12 @@ public class RecordPlayer
 
         tick -= preDelay;
 
-        int min = Math.min(this.tick - this.record.preDelay, tick);
-        int max = Math.max(this.tick - this.record.preDelay, tick);
-
-        if (actions)
-        {
-            for (int i = min; i < max; i++)
-            {
-                this.record.applyAction(i, this.actor);
-            }
-        }
-
         this.tick = original;
         this.record.resetUnload();
         this.record.applyFrame(this.playing ? tick : Math.max(0, tick - 1), this.actor, true, this.realPlayer);
 
         if (actions)
         {
-            this.record.applyAction(tick, this.actor);
-
             if (this.replay != null)
             {
                 this.record.applyPreviousMorph(this.actor, this.replay, tick, this.playing ? Record.MorphType.FORCE : Record.MorphType.PAUSE);
