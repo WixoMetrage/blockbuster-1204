@@ -45,6 +45,7 @@ public class VideoRecorder
     private static final int DEBUG_EVERY = 120;
     private int debugCalls;
     private long debugNanos;
+    private long debugWindowStart;
 
     public boolean isRecording()
     {
@@ -102,6 +103,9 @@ public class VideoRecorder
         this.failed = false;
         this.abort = false;
         this.frames = 0;
+        this.debugCalls = 0;
+        this.debugNanos = 0L;
+        this.debugWindowStart = 0L;
 
         try
         {
@@ -152,15 +156,29 @@ public class VideoRecorder
 
         if (this.debug)
         {
-            this.debugNanos += System.nanoTime() - start;
+            long end = System.nanoTime();
+
+            this.debugNanos += end - start;
+
+            if (this.debugWindowStart == 0L)
+            {
+                this.debugWindowStart = start;
+            }
 
             if (++this.debugCalls == DEBUG_EVERY)
             {
-                LOGGER.info("[debug] {} frames delivered, capture + hand-off {} ms/frame over the last {}",
-                    this.frames, String.format("%.2f", this.debugNanos / 1e6 / DEBUG_EVERY), DEBUG_EVERY);
+                /* Total = wall time per output frame (render + capture); the
+                 * difference is what the game itself spends rendering. */
+                double total = (end - this.debugWindowStart) / 1e6 / DEBUG_EVERY;
+                double capture = this.debugNanos / 1e6 / DEBUG_EVERY;
+
+                LOGGER.info("[debug] {} frames delivered | total {} ms/frame ({} fps) | capture + hand-off {} ms | rest (game render) {} ms",
+                    this.frames, String.format("%.1f", total), String.format("%.1f", 1000 / total),
+                    String.format("%.1f", capture), String.format("%.1f", total - capture));
 
                 this.debugCalls = 0;
                 this.debugNanos = 0L;
+                this.debugWindowStart = end;
             }
         }
 
