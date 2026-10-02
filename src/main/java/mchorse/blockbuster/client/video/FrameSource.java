@@ -30,6 +30,12 @@ public interface FrameSource
     default void flush(Consumer out)
     {}
 
+    /** Per-stage timings since the last call, for {@code video.debug}; empty when not measured. */
+    default String debugStats()
+    {
+        return "";
+    }
+
     /** Free the source's resources (GL objects) — render thread. */
     default void release()
     {}

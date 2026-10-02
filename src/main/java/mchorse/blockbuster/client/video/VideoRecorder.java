@@ -176,6 +176,13 @@ public class VideoRecorder
                     this.frames, String.format("%.1f", total), String.format("%.1f", 1000 / total),
                     String.format("%.1f", capture), String.format("%.1f", total - capture));
 
+                String stages = this.source == null ? "" : this.source.debugStats();
+
+                if (!stages.isEmpty())
+                {
+                    LOGGER.info("[debug]   inside capture: {}", stages);
+                }
+
                 this.debugCalls = 0;
                 this.debugNanos = 0L;
                 this.debugWindowStart = end;

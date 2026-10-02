@@ -74,6 +74,15 @@ public class PboFrameSource implements FrameSource
     private int lastSourceHeight;
     private boolean warnedMissing;
 
+    /** {@code video.debug}: time each stage (forces GPU syncs, so only for diagnosis). */
+    public boolean debug;
+
+    private int debugFrames;
+    private long gpuNanos;
+    private long readNanos;
+    private long mapNanos;
+    private long handoffNanos;
+
     public PboFrameSource(Supplier<Framebuffer> framebuffer, VideoFormat format, int width, int height)
     {
         this.framebuffer = framebuffer;
@@ -123,6 +132,19 @@ public class PboFrameSource implements FrameSource
 
         this.reportPlanChange(plan, source.textureWidth, source.textureHeight);
 
+        /* video.debug only: wait for the GPU to finish this frame's rendering,
+         * so the game's render time and the capture's own cost are measured
+         * apart (a forced sync — never done outside debug). */
+        long t0 = this.debug ? System.nanoTime() : 0L;
+
+        if (this.debug)
+        {
+            GL11.glFinish();
+            this.gpuNanos += System.nanoTime() - t0;
+        }
+
+        long t1 = this.debug ? System.nanoTime() : 0L;
+
         int prevRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
         int prevDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int prevAlign = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
@@ -154,6 +176,13 @@ public class PboFrameSource implements FrameSource
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
         GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
 
+        if (this.debug)
+        {
+            GL11.glFinish();
+            this.readNanos += System.nanoTime() - t1;
+            this.debugFrames++;
+        }
+
         this.pending[(this.head + this.count) % RING] = slot;
         this.count++;
         this.next = (slot + 1) % RING;
@@ -162,6 +191,25 @@ public class PboFrameSource implements FrameSource
         {
             this.deliverOldest(out);
         }
+    }
+
+    /** Averages since the last call, then reset (video.debug only). */
+    @Override
+    public String debugStats()
+    {
+        if (!this.debug || this.debugFrames == 0)
+        {
+            return "";
+        }
+
+        double n = this.debugFrames;
+        String stats = String.format("GPU render (forced wait) %.1f ms | readback %.1f ms | map %.1f ms | copy + encoder queue %.1f ms",
+            this.gpuNanos / 1e6 / n, this.readNanos / 1e6 / n, this.mapNanos / 1e6 / n, this.handoffNanos / 1e6 / n);
+
+        this.debugFrames = 0;
+        this.gpuNanos = this.readNanos = this.mapNanos = this.handoffNanos = 0L;
+
+        return stats;
     }
 
     @Override
@@ -253,7 +301,14 @@ public class PboFrameSource implements FrameSource
 
         try
         {
+            long t0 = this.debug ? System.nanoTime() : 0L;
             ByteBuffer mapped = GL30.glMapBufferRange(GL21.GL_PIXEL_PACK_BUFFER, 0, this.frameSize, GL30.GL_MAP_READ_BIT);
+            long t1 = this.debug ? System.nanoTime() : 0L;
+
+            if (this.debug)
+            {
+                this.mapNanos += t1 - t0;
+            }
 
             if (mapped == null)
             {
@@ -269,6 +324,11 @@ public class PboFrameSource implements FrameSource
             finally
             {
                 GL15.glUnmapBuffer(GL21.GL_PIXEL_PACK_BUFFER);
+
+                if (this.debug)
+                {
+                    this.handoffNanos += System.nanoTime() - t1;
+                }
             }
         }
         finally

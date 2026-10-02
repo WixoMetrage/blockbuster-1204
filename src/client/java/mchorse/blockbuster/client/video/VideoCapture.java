@@ -88,7 +88,11 @@ public class VideoCapture implements MinemaBackend.Capture
      */
     protected FrameSource frameSource(VideoParams params)
     {
-        return PboFrameSource.mainFramebuffer(params);
+        PboFrameSource source = PboFrameSource.mainFramebuffer(params);
+
+        source.debug = VideoConfig.debug();
+
+        return source;
     }
 
     @Override
