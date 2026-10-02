@@ -40,6 +40,13 @@ public class VideoCapture implements MinemaBackend.Capture
     /** video.debug: camera state logged with each captured frame (installed by {@link VideoCaptureWiring}). */
     public static java.util.function.Supplier<String> frameState = () -> "";
 
+    /**
+     * wixo.1 (C5): whether this output frame belongs to the recording. An
+     * Aperture take keeps only the frames where its camera profile plays
+     * (installed by {@link VideoCaptureWiring}); a plain recording keeps all.
+     */
+    public static java.util.function.BooleanSupplier frameGate = () -> true;
+
     private int captured;
 
     /** The recorder this controller drives (exposed for tests / debug overlays). */
@@ -163,11 +170,18 @@ public class VideoCapture implements MinemaBackend.Capture
             return;
         }
 
+        boolean inTake = frameGate.getAsBoolean();
+
         if (this.recorder.debug)
         {
-            /* video.debug: what the camera was doing for each captured frame
+            /* video.debug: what the camera was doing for each output frame
              * (diagnoses frames captured before/after an Aperture profile). */
-            LOGGER.info("[debug] capture #{}: {}", this.captured++, frameState.get());
+            LOGGER.info("[debug] {}: {}", inTake ? "capture #" + this.captured++ : "skipped (outside the take)", frameState.get());
+        }
+
+        if (!inTake)
+        {
+            return;
         }
 
         this.recorder.recordFrame();

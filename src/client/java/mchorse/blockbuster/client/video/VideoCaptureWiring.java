@@ -72,6 +72,14 @@ public final class VideoCaptureWiring
             + " tick=" + mchorse.aperture.ClientProxy.runner.ticks
             + " partial=" + mchorse.aperture.ClientProxy.runner.lastPartialTick;
 
+        /* wixo.1 (C5): an Aperture take records only the frames its profile plays. */
+        VideoCapture.frameGate = () ->
+        {
+            mchorse.aperture.client.gui.GuiCameraEditor editor = mchorse.aperture.ClientProxy.cameraEditor;
+
+            return editor == null || editor.minema == null || editor.minema.capturesFrame();
+        };
+
         /* S22 P270: the GL half of custom-resolution capture. Without this
          * assignment CustomResolutionCapture.swap keeps its refuse-everything
          * default and every recording is made at the window size — which is

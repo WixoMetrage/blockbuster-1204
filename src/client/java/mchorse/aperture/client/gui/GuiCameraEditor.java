@@ -101,8 +101,6 @@ public class GuiCameraEditor extends GuiBase
      */
     public static final Map<Class<? extends AbstractFixture>, Class<? extends GuiAbstractFixturePanel<? extends AbstractFixture>>> PANELS = new HashMap<>();
 
-    private static boolean tickHookRegistered;
-
     /* Strings (legacy cached I18n.format eagerly; IKeys resolve lazily so
      * the class stays headless-constructible) */
     private IKey stringX = IKey.lang("aperture.gui.panels.x");
@@ -448,33 +446,27 @@ public class GuiCameraEditor extends GuiBase
         /* P183 seam: the editor drives the render camera while it previews
          * (flight, outside mode, or sync after scrubbing) */
         ApertureClient.editorPosition = () -> this.isDrivingCamera() ? this.position : null;
-
-        ensureTickHook();
     }
 
     /**
-     * Legacy Forge ClientTickEvent Phase.START — a single Fabric callback
-     * flushes the deferred operations of the (singleton) editor while it's
-     * active.
+     * Legacy Forge ClientTickEvent Phase.START — flushes the deferred
+     * operations of the (singleton) editor while it's active.
+     *
+     * <p>wixo.1 (CDC §5, C5): called by {@code ApertureClient.onClientTickStart}
+     * <b>before</b> the runner tick, as in 1.12.2 where ClientTickEvent
+     * preceded PlayerTickEvent. It used to be its own START_CLIENT_TICK
+     * callback registered after the runner's, so a profile started here
+     * (play / record) had its {@code skipUpdate} consumed one tick late: tick 0
+     * lasted two ticks and the camera ran one tick behind the scene.</p>
      */
-    private static void ensureTickHook()
+    public static void flushPendingOperations()
     {
-        if (tickHookRegistered)
+        GuiCameraEditor editor = ClientProxy.cameraEditor;
+
+        if (editor != null && editor.active)
         {
-            return;
+            editor.flushOperations();
         }
-
-        tickHookRegistered = true;
-
-        ClientTickEvents.START_CLIENT_TICK.register(client ->
-        {
-            GuiCameraEditor editor = ClientProxy.cameraEditor;
-
-            if (editor != null && editor.active)
-            {
-                editor.flushOperations();
-            }
-        });
     }
 
     private void flushOperations()

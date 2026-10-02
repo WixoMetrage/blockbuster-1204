@@ -273,6 +273,12 @@ public class GuiMinemaPanel extends GuiElement
         return this.lifecycle.isRecording();
     }
 
+    /** wixo.1 (C5): see {@link RecordingLifecycle#capturesFrame}. */
+    public boolean capturesFrame()
+    {
+        return this.lifecycle.capturesFrame(this.isRunning(), this.editor.getRunner().ticks);
+    }
+
     private boolean isRunning()
     {
         return this.editor.getRunner().isRunning();
