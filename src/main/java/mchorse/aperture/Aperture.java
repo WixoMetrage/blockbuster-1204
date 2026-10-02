@@ -117,6 +117,8 @@ public class Aperture
 
     /* Camera editor (category "editor"; legacy registration defaults) */
     public static ValueBoolean editorSync = new ValueBoolean("sync", false);
+    /* wixo: leaving the editor puts the player back where they opened it (the preview moves them) */
+    public static ValueBoolean editorReturnOnExit = new ValueBoolean("return_on_exit", true);
     public static ValueBoolean editorLoop = new ValueBoolean("loop", false);
     public static ValueBoolean editorOverlay = new ValueBoolean("overlay", false);
     public static ValueRL editorOverlayRL = new ValueRL("overlay_rl", null);
@@ -233,6 +235,7 @@ public class Aperture
 
         /* Camera editor (legacy registration order) */
         builder.category("editor").register(editorSync);
+        builder.register(editorReturnOnExit);
         builder.register(editorLoop);
         builder.register(editorOverlay);
         builder.register(editorOverlayRL);
