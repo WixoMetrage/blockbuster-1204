@@ -43,8 +43,8 @@ public final class VideoCaptureWiring
 
     private static boolean installed;
 
-    /** Whether ffmpeg was probed this session (once, on the first world join). */
-    private static boolean ffmpegChecked;
+    /** The {@code video.ffmpeg_path} value last probed on a world join (null = never). */
+    private static String ffmpegProbed;
 
     private VideoCaptureWiring()
     {}
@@ -94,21 +94,25 @@ public final class VideoCaptureWiring
          * hidden, P202) camera-editor root can leak into a frame. */
         WorldRenderEvents.LAST.register(context -> CAPTURE.onFrame());
 
-        /* wixo.1 (CDC R5): say it once per session, on joining a world, when
-         * ffmpeg cannot be run — not only when a take is already starting.
-         * The probe spawns a process, so it runs off the client thread. */
+        /* wixo.1 (CDC R5): on joining a world, say when ffmpeg cannot be run —
+         * not only when a take is already starting. Probed again whenever the
+         * configured path changed since the last probe (a path edited during
+         * the session is checked at the next join). The probe spawns a
+         * process, so it runs off the client thread. */
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
         {
-            if (ffmpegChecked)
+            String configured = VideoConfig.ffmpegPath();
+
+            if (configured.equals(ffmpegProbed))
             {
                 return;
             }
 
-            ffmpegChecked = true;
+            ffmpegProbed = configured;
 
             Thread probe = new Thread(() ->
             {
-                String path = FfmpegLocator.resolve(VideoConfig.ffmpegPath());
+                String path = FfmpegLocator.resolve(configured);
 
                 if (!FfmpegLocator.checkAvailable(path))
                 {
