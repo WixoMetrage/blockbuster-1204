@@ -433,6 +433,10 @@ public class ApertureClient
      */
     static void onClientTickStart(MinecraftClient client)
     {
+        /* Legacy ClientTickEvent (ungated) ran before PlayerTickEvent: a profile
+         * the editor starts this tick must see this tick's runner update. */
+        GuiCameraEditor.flushPendingOperations();
+
         if (client == null || client.player == null || client.isPaused())
         {
             return;
@@ -581,7 +585,7 @@ public class ApertureClient
 
         if (ClientProxy.renderer.smoothFovActive)
         {
-            return ClientProxy.renderer.fov.value;
+            return ClientProxy.renderer.smoothFov;
         }
 
         return null;

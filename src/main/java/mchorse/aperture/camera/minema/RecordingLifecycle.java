@@ -91,6 +91,8 @@ public class RecordingLifecycle
     private final Host host;
 
     private boolean recording;
+    /** wixo.1 (C5): from a successful {@code toggleRecording(true)} to {@link #stop}. */
+    private boolean take;
     private int start;
     private int end;
 
@@ -141,6 +143,7 @@ public class RecordingLifecycle
         try
         {
             this.recorder.toggleRecording(true);
+            this.take = true;
             this.host.postOperation(() -> this.recording = true);
         }
         catch (Exception e)
@@ -167,6 +170,21 @@ public class RecordingLifecycle
         return true;
     }
 
+    /**
+     * wixo.1 (CDC §5, C5): whether the frame being rendered belongs to the take.
+     *
+     * <p>The recorder starts on the click but the runner only at the next client
+     * tick, and the runner stops itself inside the frame where it reaches its
+     * duration while {@link #minema} only notices once the world is drawn.
+     * Those frames showed the editor / player view: a 30-tick take came out at
+     * 96 frames instead of 90. Only frames where the profile plays inside
+     * {@code [start, end)} belong to the take; outside a take every frame does.</p>
+     */
+    public boolean capturesFrame(boolean running, long ticks)
+    {
+        return !this.take || (running && ticks >= this.start && ticks < this.end);
+    }
+
     public void stop()
     {
         this.stop(false);
@@ -174,6 +192,8 @@ public class RecordingLifecycle
 
     public void stop(boolean prematureStop)
     {
+        this.take = false;
+
         if (!this.recording)
         {
             return;

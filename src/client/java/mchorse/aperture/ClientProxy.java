@@ -73,9 +73,11 @@ public class ClientProxy
 
         renderer.roll.friction = Aperture.rollFriction;
         renderer.roll.factor = Aperture.rollFactor;
+        renderer.roll.reference = Aperture.smoothReferenceFps;
 
         renderer.fov.friction = Aperture.fovFriction;
         renderer.fov.factor = Aperture.fovFactor;
+        renderer.fov.reference = Aperture.smoothReferenceFps;
     }
 
     /**

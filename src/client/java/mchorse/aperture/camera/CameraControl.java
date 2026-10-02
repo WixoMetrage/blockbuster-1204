@@ -224,7 +224,13 @@ public class CameraControl
     public void setRollAndFOV(float roll, float fov)
     {
         this.setRoll(roll);
-        this.setFOV(fov);
+
+        /* wixo.1 (CDC §5): called every frame by the editor preview. Only the
+         * smooth-FOV filter is seeded; the vanilla FOV option is no longer
+         * written — the camera FOV reaches the renderer through
+         * ApertureClient.getFovOverride. Writing it overwrote the user's own FOV
+         * setting and, outside 30-110, logged "Illegal option value" every frame. */
+        ClientProxy.renderer.fov.reset(fov);
     }
 
     public float getRoll(float partialTicks)

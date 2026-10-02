@@ -148,11 +148,12 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 
 ---
 
-## 5. Chantier 2 : caméra, FOV et coupes  📝 (décisions prises, à détailler)
+## 5. Chantier 2 : caméra, FOV et coupes  ✅ (2.7.3-wixo.2, validé en jeu le 2026-10-02)
 
 **Problème :** entre deux plans de FOV différents, on voit 1 ou 2 images de transition. Visible en prévisualisation **et** dans la vidéo.
 
 **Cause trouvée (certaine) :** le runner Aperture est évalué dans `Camera.update` (`CameraMixin`), **après** que `GameRenderer.renderWorld` a déjà lu le FOV (`getFov`) et le roll (`tiltViewWhenHurt`). Le FOV et le roll affichés ont donc toujours **une image de retard** sur la position.
+> **Correction (2026-10-02) :** ce retard est propre à la 1.12.2. En 1.20.4, `renderWorld` appelle `Camera.update` **avant** `getFov` et `tiltViewWhenHurt` : FOV, roll et position sont lus sur la même image. Wixo n'a pas reproduit le bug dans le fork. Rien à corriger sur ce point.
 
 **Décisions de Wixo :**
 - La coupe doit être **nette sur l'image exacte** : position, rotation, FOV et roll changent ensemble.
@@ -161,6 +162,16 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 
 **Autres points relevés :** roll interpolé avec une valeur périmée (`prevRollMode`) ; l'aperçu écrit l'option FOV vanilla à chaque image (spam de logs au-delà de 30-110) ; le filtre de caméra lisse dépend du framerate.
 - *Relevé pendant le chantier 1 :* une prise Aperture d'un profil de 30 ticks a produit 96 images au lieu de 90 (0,1 s de trop). Le démarrage et l'arrêt de l'enregistrement par Aperture ne sont pas calés à l'image près : l'arrêt n'est vérifié qu'une fois par image d'interface (`RecordingLifecycle.minema`). Ça rejoint l'exigence de coupes nettes à l'image exacte.
+
+**Corrections (branche `fix/camera-fov`) :**
+- **C5, prises calées :** le log debug d'une prise de 30 ticks montrait 2 images avant le démarrage du runner, 3 images en double (le tick 0 durait deux ticks : dans le portage, les opérations de l'éditeur passaient **après** le tick du runner, d'où aussi un décalage d'un tick sur la scène) et 1 image en vue joueur après l'arrêt. → Ordre de tick 1.12.2 rétabli, et une prise Aperture ne garde que les images où le profil joue, dans `[début, fin)`. Prise de contrôle : exactement 90 images.
+- **C4 :** l'aperçu n'écrit plus l'option FOV vanilla. **C3 :** le roll n'est plus interpolé avec une valeur périmée.
+- **C2 :** seul le Drag garde un état (Shake, Math, etc. sont des fonctions du temps). Il repart à zéro à chaque coupe, global comme de plan, et quand le temps recule (scrub, boucle). Option `aperture.general.drag_reset_on_cut`, active par défaut.
+- **C6 :** le roll et le FOV lissés avancent une fois par tick, et non plus une fois par image. Option `aperture.smooth.reference_fps` (60) : même vitesse qu'avant à 60 images/s, quel que soit le framerate.
+
+**Reportés (Wixo ne s'en sert pas, 2026-10-02) :**
+- Le Drag lisse une fois par **image** : son effet dépend du framerate (aperçu à 144 images/s ≠ prise à 60 images/s).
+- Caméra lisse : quand l'accélération du FOV retombe à zéro, le FOV revient à l'option vanilla au lieu de rester où il a été amené (constaté dans le code, non vérifié en jeu).
 
 ---
 

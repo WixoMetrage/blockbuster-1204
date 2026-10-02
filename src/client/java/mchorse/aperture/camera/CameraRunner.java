@@ -243,6 +243,9 @@ public class CameraRunner implements CameraExporter.PositionSource
         this.skipUpdate = this.isRunning ? true : false;
     }
 
+    /** Partial tick of the last {@link #onRenderTick} (diagnostics: video.debug). */
+    public float lastPartialTick;
+
     /**
      * The method that does the most exciting thing! This method is responsible
      * for applying interpolated fixture on position and apply the output from
@@ -251,6 +254,8 @@ public class CameraRunner implements CameraExporter.PositionSource
      */
     public void onRenderTick(float partialTick)
     {
+        this.lastPartialTick = partialTick;
+
         if (!this.isRunning)
         {
             return;
@@ -298,8 +303,14 @@ public class CameraRunner implements CameraExporter.PositionSource
             Angle angle = this.position.angle;
 
             /* Setting up the camera: fov/roll flow through the P178 mixins
-             * (legacy mutated gameSettings.fovSetting here) */
-            ClientProxy.control.roll = angle.roll;
+             * (legacy mutated gameSettings.fovSetting here).
+             *
+             * wixo.1 (CDC §5): setRoll, not a bare field write — it also clears
+             * prevRollMode. A Blockbuster scene playback leaves that mode on
+             * (CameraHandler.rollSetter), and getRoll() then lerped this
+             * frame's roll with a stale prevRoll for the rest of the camera
+             * playback. */
+            ClientProxy.control.setRoll(angle.roll);
 
             /* Fighting with Optifine disappearing entities bug */
             double y = point.y + Math.sin(progress) * 0.000000001 + 0.000000001;

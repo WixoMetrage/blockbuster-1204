@@ -1,5 +1,6 @@
 package mchorse.aperture.camera.modifiers;
 
+import mchorse.aperture.Aperture;
 import mchorse.aperture.camera.CameraProfile;
 import mchorse.aperture.camera.data.Position;
 import mchorse.aperture.camera.fixtures.AbstractFixture;
@@ -26,6 +27,10 @@ public class DragModifier extends ComponentModifier
     private float roll;
     private float fov;
 
+    /* wixo.1 (C2): the cut and time of the previous frame, see needsReset */
+    private AbstractFixture lastCut;
+    private double lastTime = -1;
+
     public final ValueFloat factor = new ValueFloat("factor", 0.5F, 0F, 1F);
 
     public DragModifier()
@@ -46,19 +51,41 @@ public class DragModifier extends ComponentModifier
         this.fov = position.angle.fov;
     }
 
+    /**
+     * wixo.1 (CDC §5, C2): the drag starts over at every cut.
+     *
+     * <p>Legacy only reset at {@code offset == 0}. A global drag gets the
+     * profile tick as offset, so it reset once at the start of the profile and
+     * then dragged the camera across every cut, smearing the change of shot.
+     * It now also resets when the cut changes ({@code aperture.general.drag_reset_on_cut},
+     * on by default) and when time goes backwards (scrub, loop, second take),
+     * so a fixture whose first frame is not at offset 0 never starts from the
+     * position it was left at last time.</p>
+     */
+    protected boolean needsReset(long offset, AbstractFixture cut, double time)
+    {
+        if (offset == 0 || time < this.lastTime)
+        {
+            return true;
+        }
+
+        return cut != this.lastCut && Aperture.dragResetOnCut.get();
+    }
+
     @Override
     public void modify(long ticks, long offset, AbstractFixture fixture, float partialTick, float previewPartialTick, CameraProfile profile, Position pos)
     {
-        if (offset == 0)
+        /* For a global drag (fixture == null) the cut is the fixture playing now. */
+        AbstractFixture cut = fixture != null ? fixture : profile.atTick(ticks);
+        double time = ticks + previewPartialTick;
+
+        if (this.needsReset(offset, cut, time))
         {
-            this.x = pos.point.x;
-            this.y = pos.point.y;
-            this.z = pos.point.z;
-            this.yaw = pos.angle.yaw;
-            this.pitch = pos.angle.pitch;
-            this.roll = pos.angle.roll;
-            this.fov = pos.angle.fov;
+            this.reset(pos);
         }
+
+        this.lastCut = cut;
+        this.lastTime = time;
 
         float factor = this.factor.get();
 

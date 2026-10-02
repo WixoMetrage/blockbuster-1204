@@ -80,6 +80,8 @@ public class Aperture
     public static ValueBoolean profileRender = new ValueBoolean("profile_render", true);
     public static ValueBoolean profileAutoSave = new ValueBoolean("auto_save", true);
     public static ValueBoolean essentialsTeleport = new ValueBoolean("essentials_tp", false);
+    /* wixo.1 (CDC §5, C2): a drag (global or per fixture) starts over at every cut */
+    public static ValueBoolean dragResetOnCut = new ValueBoolean("drag_reset_on_cut", true);
 
     /* Minema/recorder client config (category "minema", client-side).
      * Legacy: ClientProxy.registerClientConfig →
@@ -157,6 +159,8 @@ public class Aperture
     public static ValueFloat rollFactor = new ValueFloat("roll_speed", 0.01F, 0.0F, 10.0F);
     public static ValueFloat fovFriction = new ValueFloat("fov_friction", 0.985F, 0.0F, 0.99999F);
     public static ValueFloat fovFactor = new ValueFloat("fov_speed", 0.075F, 0.0F, 10.0F);
+    /* wixo.1 (CDC §5, C6): roll/FOV smoothing speed is matched to legacy at this frame rate, then frame-rate independent */
+    public static ValueInt smoothReferenceFps = new ValueInt("reference_fps", 60, 1, 1000);
 
     /* Port seams — the legacy code reads client-only statics
      * (ClientProxy.control.roll, gameSettings.fovSetting) from common data
@@ -210,6 +214,7 @@ public class Aperture
         builder.register(profileRender);
         builder.register(profileAutoSave);
         builder.register(essentialsTeleport);
+        builder.register(dragResetOnCut);
 
         /* Processing camera command name (legacy: empty sanitized → "camera") */
         if (sanitizeCommandName(commandName.get()).isEmpty())
@@ -274,6 +279,7 @@ public class Aperture
         builder.register(rollFactor);
         builder.register(fovFriction);
         builder.register(fovFactor);
+        builder.register(smoothReferenceFps);
 
         builder.getCategory().markClientSide();
 

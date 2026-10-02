@@ -1,5 +1,26 @@
 # Changelog — Blockbuster (fork Wixo)
 
+## 2.7.3-wixo.2 — chantier 2 : caméra, FOV et coupes (validé en jeu le 2026-10-02)
+
+### Prises Aperture calées à l'image près
+- Un profil de N ticks donne exactement N × (images/s ÷ 20) images : 90 images pour 30 ticks à 60 images/s, au lieu de 96.
+- Plus d'images avant le démarrage du profil ni d'image en vue joueur après la fin. Seules les images de la plage choisie sont enregistrées.
+- Le premier tick du profil ne dure plus deux ticks : la caméra n'a plus un tick de retard sur la scène (ordre de tick de la 1.12.2 rétabli).
+
+### Roll et FOV
+- L'aperçu de l'éditeur n'écrit plus l'option FOV de Minecraft : ton FOV n'est plus modifié, et plus de « Illegal option value » dans le log.
+- Le roll n'est plus mélangé à une valeur périmée après la lecture d'une scène.
+- Coupes entre plans de roll et de FOV différents : nettes sur l'image exacte (vérifié ; le retard d'une image de la 1.12.2 n'existe pas en 1.20.4).
+
+### Modifiers
+- **Drag** : il repart à zéro à chaque coupe (global comme de plan) et quand on revient en arrière (scrub, boucle). Option Aperture › Général › « Drag remis à zéro à chaque coupe », activée par défaut.
+
+### Caméra lisse
+- Le roll et le FOV lissés ne dépendent plus du framerate. Option Aperture › Caméra lisse › « Images/s de référence » (60 par défaut : même vitesse qu'avant à 60 images/s).
+
+### Diagnostic
+- Mode debug vidéo : le log indique pour chaque image l'état de la caméra (en lecture, tick, fraction de tick), et les images écartées hors prise.
+
 ## 2.7.3-wixo.1 — chantier 1 : vidéo (validé en jeu le 2026-10-02 : V1 à V9)
 
 ### Résolution (CDC R1, R2, R4)
