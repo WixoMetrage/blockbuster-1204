@@ -148,7 +148,7 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 
 ---
 
-## 5. Chantier 2 : caméra, FOV et coupes  📝 (décisions prises, à détailler)
+## 5. Chantier 2 : caméra, FOV et coupes  ✅ (2.7.3-wixo.2, validé en jeu le 2026-10-02)
 
 **Problème :** entre deux plans de FOV différents, on voit 1 ou 2 images de transition. Visible en prévisualisation **et** dans la vidéo.
 
