@@ -64,6 +64,9 @@ public final class VideoCaptureWiring
         /* wixo.1 (CDC R4): recorder messages go to the chat, not only the log. */
         VideoMessages.sink = VideoChat::post;
 
+        /* wixo.1 (CDC R1/R7): resolution presets and encoder selector in the config panel. */
+        VideoConfigGui.register();
+
         /* S22 P270: the GL half of custom-resolution capture. Without this
          * assignment CustomResolutionCapture.swap keeps its refuse-everything
          * default and every recording is made at the window size — which is

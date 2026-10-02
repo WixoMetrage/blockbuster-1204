@@ -109,6 +109,11 @@ public class VideoCaptureKeyHandler
         boolean recording = MinemaIntegration.isRecording();
         boolean shift = this.shiftAtPress || Screen.hasShiftDown();
 
+        /* Diagnostic (one line per key press): Shift+F4 was reported to start a
+         * recording instead of opening the panel. */
+        LOGGER.info("Capture key: shift at press {}, shift now {}, recording {}",
+            this.shiftAtPress, Screen.hasShiftDown(), recording);
+
         this.shiftAtPress = false;
 
         if (shift && !recording)

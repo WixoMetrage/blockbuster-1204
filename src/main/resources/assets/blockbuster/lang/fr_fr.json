@@ -16,6 +16,8 @@
   "blockbuster.config.video.export_path": "Dossier de sortie",
   "blockbuster.config.video.encoder_log": "Un log d'encodage par prise",
   "blockbuster.config.video.custom_resolution_shaders": "Résolution choisie avec shaders",
+  "blockbuster.config.video.resolution": "Résolution de la vidéo",
+  "blockbuster.config.comments.video.resolution": "Taille de la vidéo enregistrée. Le monde est rendu à cette taille quelle que soit la fenêtre (aussi avec les shaders). Taille de la fenêtre = enregistrer ce que montre la fenêtre",
   "blockbuster.config.video.encoder": "Encodage",
   "blockbuster.config.video.debug": "Mode debug",
   "blockbuster.config.comments.video.debug": "Écrire des diagnostics détaillés de l'enregistreur dans latest.log (temps de lecture toutes les 120 images)",
