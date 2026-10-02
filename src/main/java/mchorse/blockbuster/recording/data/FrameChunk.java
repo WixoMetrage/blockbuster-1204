@@ -78,29 +78,23 @@ public class FrameChunk
                 merged.addAll(frames);
             }
 
-            int newSize = this.offset + merged.size();
-
-            for (int i = 0, c = Math.max(newSize, oldFrames.size()); i < c; i++)
+            /* wixo (CDC §6, R4): the old take up to the offset, then the new
+             * one, and nothing after it. Legacy kept the old frames past the end
+             * of the new portion: the actor finished with its previous take,
+             * teleporting to where it used to be. */
+            for (int i = 0; i < this.offset; i++)
             {
-                Frame frame;
-
-                if (i < this.offset)
+                if (i < oldFrames.size())
                 {
-                    frame = i < oldFrames.size() ? oldFrames.get(i) : merged.get(0).copy();
+                    output.add(oldFrames.get(i));
                 }
-                else if (i > newSize)
+                else if (!merged.isEmpty())
                 {
-                    frame = oldFrames.get(i);
+                    output.add(merged.get(0).copy());
                 }
-                else
-                {
-                    int index = i - this.offset;
-
-                    frame = index < merged.size() ? merged.get(index) : oldFrames.get(i);
-                }
-
-                output.add(frame);
             }
+
+            output.addAll(merged);
         }
         else
         {

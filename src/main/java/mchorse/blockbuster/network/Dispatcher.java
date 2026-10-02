@@ -11,6 +11,7 @@ import mchorse.blockbuster.aperture.network.server.ServerHandlerRequestProfiles;
 import mchorse.blockbuster.network.common.PacketActorSpawnData;
 import mchorse.blockbuster.network.common.PacketCaption;
 import mchorse.blockbuster.network.common.PacketDamageControlCheck;
+import mchorse.blockbuster.network.common.recording.PacketRecordingTick;
 import mchorse.blockbuster.network.common.PacketModifyActor;
 import mchorse.blockbuster.network.common.PacketModifyModelBlock;
 import mchorse.blockbuster.network.common.PacketOpenGui;
@@ -61,6 +62,7 @@ import mchorse.blockbuster.network.common.structure.PacketStructureListRequest;
 import mchorse.blockbuster.network.common.structure.PacketStructureRequest;
 import mchorse.blockbuster.network.server.ServerHandlerApplyFrame;
 import mchorse.blockbuster.network.server.ServerHandlerDamageControlCheck;
+import mchorse.blockbuster.network.server.recording.ServerHandlerRecordingTick;
 import mchorse.blockbuster.network.server.ServerHandlerModifyActor;
 import mchorse.blockbuster.network.server.ServerHandlerModifyModelBlock;
 import mchorse.blockbuster.network.server.ServerHandlerPlaybackButton;
@@ -267,6 +269,10 @@ public class Dispatcher
              * unconditional here. Identifier blockbuster:audio_shift. */
             register(PacketAudioShift.class,
                 ServerHandlerAudioShift.class, Side.SERVER);
+
+            /* wixo (CDC §6, R4) — client recording tick (C→S), no 1.12 slot.
+             * Identifier blockbuster:recording_tick. */
+            register(PacketRecordingTick.class, ServerHandlerRecordingTick.class, Side.SERVER);
         }
     };
 

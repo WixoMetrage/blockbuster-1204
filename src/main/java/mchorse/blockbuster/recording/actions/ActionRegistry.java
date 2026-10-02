@@ -187,5 +187,8 @@ public class ActionRegistry
 
         register("interact_entity", InteractEntityAction.class);
         register("close_container", CloseContainerAction.class);
+
+        /* wixo (CDC §6, R3) */
+        register("explosion", ExplosionAction.class);
     }
 }

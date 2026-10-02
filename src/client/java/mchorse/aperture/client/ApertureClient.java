@@ -588,6 +588,16 @@ public class ApertureClient
             return ClientProxy.renderer.smoothFov;
         }
 
+        /* wixo (C4 follow-up): playback stopped, or started past the first
+         * keyframe and stopped — the player stands at the camera position, so
+         * keep the camera FOV until the editor closes. */
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (ClientProxy.control.previewFov != null && mc != null && mc.currentScreen != null && mc.currentScreen == ClientProxy.cameraEditor)
+        {
+            return ClientProxy.control.previewFov;
+        }
+
         return null;
     }
 

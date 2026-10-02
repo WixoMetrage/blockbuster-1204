@@ -10,6 +10,9 @@ import mchorse.blockbuster.recording.actions.Action;
 import mchorse.blockbuster.recording.actions.BreakBlockAnimation;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
@@ -27,60 +30,34 @@ import net.minecraft.world.World;
  * from mixins ({@code WorldMixin.setBlockState} HEAD for the static
  * {@link #setBlockState} coremod target, {@code ServerWorldMixin
  * .setBlockBreakingInfo} for {@link #sendBlockBreakProgress},
- * {@code ServerWorldMixin.onBlockChanged} for {@link #notifyBlockUpdate}) and
- * from a Fabric API event ({@code ServerEntityEvents.ENTITY_LOAD} for
- * {@link #onEntityAdded}, registered in {@link ActionHandler#register()}).</p>
+ * {@code ServerWorldMixin.addEntity} / {@code EntityMixin.setRemoved} /
+ * {@code LivingEntityMixin.onDeath} for the entity feed,
+ * {@code ServerPlayerEntityMixin.openHandledScreen} for containers).</p>
  */
 public class WorldEventListener
 {
     /**
-     * Coremod target (legacy {@code WorldTransformer}): caches the pre-change
-     * block entity so damage control can restore it. Gated on
-     * {@code damage_control}. Called from {@code WorldMixin} at HEAD, so the
-     * block entity is still the pre-change one.
+     * Damage control feed (legacy {@code notifyBlockUpdate} + the
+     * {@code WorldTransformer} coremod), called from {@code WorldMixin} at the
+     * HEAD of {@code World.setBlockState}.
+     *
+     * <p>wixo (CDC §6, R1): the block and its block entity are journaled
+     * <b>here</b>, before anything changes. Legacy kept a reference to the
+     * block entity and serialized it after the change, by which time a chest
+     * had scattered its content on the ground: restored chests came back
+     * empty. Director blocks are skipped (actors must never toggle them) and a
+     * moving piston is journaled as air.</p>
      */
     public static void setBlockState(World world, BlockPos pos, BlockState newState, int flags)
     {
-        if (world.isClient())
+        if (world.isClient() || !Blockbuster.damageControl.get() || !CommonProxy.damage.isCapturing())
         {
             return;
         }
 
-        if (Blockbuster.damageControl.get())
-        {
-            ActionHandler.lastTE = world.getBlockEntity(pos);
-        }
-    }
+        BlockState oldState = world.getBlockState(pos);
 
-    /**
-     * Used by damage control (legacy {@code IWorldEventListener
-     * .notifyBlockUpdate}). Director blocks are skipped entirely (actors must
-     * never toggle them) and moving-piston old states are substituted with air
-     * so damage control doesn't restore ghost piston-extension blocks.
-     *
-     * <p>Called after a successful {@code World.setBlockState} with the
-     * pre-change ("old") state — on 1.20.4 that seam is
-     * {@code ServerWorld.onBlockChanged}, which vanilla invokes exactly once at
-     * the success tail of {@code World.setBlockState(pos, state, flags,
-     * maxUpdateDepth)} (verified against the loom-named jar). {@code flags} is
-     * not available there and is passed as {@code 0}; legacy ignored it too.</p>
-     *
-     * <p><b>1.20.4 deviation:</b> 1.12.2 routed this through
-     * {@code World.markAndNotifyBlock}, which only reached the listener when
-     * the {@code 2} (notify-listeners) flag was set. {@code onBlockChanged} has
-     * no such gate, so silent (flag-2-less) block sets are now tracked too.
-     * Damage control only ever restores <i>more</i> of the pre-recording world
-     * because of this, and the first-writer-wins dedup keeps the restored state
-     * identical.</p>
-     */
-    public static void notifyBlockUpdate(World world, BlockPos pos, BlockState oldState, BlockState newState, int flags)
-    {
-        if (world != null && world.isClient())
-        {
-            return;
-        }
-
-        if (!Blockbuster.damageControl.get())
+        if (oldState == newState)
         {
             return;
         }
@@ -92,11 +69,55 @@ public class WorldEventListener
             return;
         }
 
-        CommonProxy.damage.addBlock(pos, resolved, world);
+        BlockEntity be = world.getBlockEntity(pos);
+
+        CommonProxy.damage.addBlock(world, pos, resolved, be == null ? null : be.createNbtWithIdentifyingData());
     }
 
     /**
-     * Legacy decision half of {@link #notifyBlockUpdate}: returns the old
+     * wixo (R1): a player opens a screen. Containers nearby are journaled as
+     * they are now, so items taken out without breaking anything come back.
+     * Called from {@code ServerPlayerEntityMixin.openHandledScreen} HEAD.
+     */
+    public static void onScreenOpened(PlayerEntity player)
+    {
+        World world = player.getWorld();
+
+        if (world.isClient() || !Blockbuster.damageControl.get() || !CommonProxy.damage.isCapturing())
+        {
+            return;
+        }
+
+        BlockPos center = player.getBlockPos();
+        int radius = CONTAINER_RADIUS;
+
+        for (int cx = (center.getX() - radius) >> 4; cx <= (center.getX() + radius) >> 4; cx++)
+        {
+            for (int cz = (center.getZ() - radius) >> 4; cz <= (center.getZ() + radius) >> 4; cz++)
+            {
+                if (!world.isChunkLoaded(cx, cz))
+                {
+                    continue;
+                }
+
+                for (BlockEntity be : world.getChunk(cx, cz).getBlockEntities().values())
+                {
+                    BlockPos pos = be.getPos();
+
+                    if (be instanceof Inventory && pos.isWithinDistance(center, radius))
+                    {
+                        CommonProxy.damage.addContent(world, pos, be.createNbtWithIdentifyingData());
+                    }
+                }
+            }
+        }
+    }
+
+    /** Containers within this distance of a player opening a screen are journaled. */
+    private static final int CONTAINER_RADIUS = 8;
+
+    /**
+     * Legacy decision half of {@link #setBlockState}: returns the old
      * state to hand to damage control, {@code Blocks.AIR} substituted for a
      * moving piston, or {@code null} when the change must be skipped (director
      * blocks). Extracted so the branching can be exercised headlessly before
@@ -150,28 +171,57 @@ public class WorldEventListener
     /**
      * Damage-control entity tracking (legacy {@code onEntityAdded}): actors and
      * players are never tracked; everything else spawned during a recording is
-     * handed to damage control so it can be removed on restore. Called from
-     * {@code ServerEntityEvents.ENTITY_LOAD}.
+     * handed to damage control so it can be removed on restore.
      *
      * <p>No {@code damage_control} config gate here, exactly like legacy: the
      * manager's map is empty whenever the feature is off (only
      * {@code addDamageControl} is gated), so {@code addEntity} is a no-op.</p>
      *
-     * <p><b>1.20.4 deviation:</b> the legacy feed was
-     * {@code World.onEntityAdded}, reached both from {@code spawnEntity} and
-     * from {@code World.loadEntities} (chunk load). Fabric's
-     * {@code ServerEntityEvents.ENTITY_LOAD} fires on the same two occasions,
-     * so the (pre-existing) legacy hazard of a chunk-loaded entity being
-     * discarded on restore is preserved verbatim rather than "fixed".</p>
+     * <p>wixo (R1): called from {@code ServerWorldMixin.addEntity} when an
+     * entity is really spawned. It used to be Fabric's {@code ENTITY_LOAD},
+     * which also fires when a chunk loads its entities, so walking into a
+     * chunk during a take discarded its animals on restore.</p>
      */
     public static void onEntityAdded(Entity entity)
     {
-        if (!shouldTrackEntity(entity))
+        if (!shouldTrackEntity(entity) || !CommonProxy.damage.isCapturing())
         {
             return;
         }
 
         CommonProxy.damage.addEntity(entity);
+    }
+
+    /**
+     * wixo (R1): an entity is about to be destroyed (killed or discarded, not
+     * unloaded): journal it so the restore brings it back. A living entity is
+     * journaled when it dies ({@link #onEntityDeath}), not when its body is
+     * removed a second later. Called from {@code EntityMixin.setRemoved} HEAD.
+     */
+    public static void onEntityRemoved(Entity entity, Entity.RemovalReason reason)
+    {
+        if (entity.getWorld().isClient() || !reason.shouldDestroy() || !shouldTrackEntity(entity) || !CommonProxy.damage.isCapturing())
+        {
+            return;
+        }
+
+        if (entity instanceof LivingEntity living && living.isDead())
+        {
+            return;
+        }
+
+        CommonProxy.damage.removeEntity(entity);
+    }
+
+    /** wixo (R1): a living entity dies. Called from {@code LivingEntityMixin.onDeath} HEAD. */
+    public static void onEntityDeath(LivingEntity entity)
+    {
+        if (entity.getWorld().isClient() || !shouldTrackEntity(entity) || !CommonProxy.damage.isCapturing())
+        {
+            return;
+        }
+
+        CommonProxy.damage.removeEntity(entity);
     }
 
     /**

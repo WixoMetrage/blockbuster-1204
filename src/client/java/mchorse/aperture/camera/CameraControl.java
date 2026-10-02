@@ -231,7 +231,16 @@ public class CameraControl
          * ApertureClient.getFovOverride. Writing it overwrote the user's own FOV
          * setting and, outside 30-110, logged "Illegal option value" every frame. */
         ClientProxy.renderer.fov.reset(fov);
+        this.previewFov = fov;
     }
+
+    /**
+     * wixo (CDC §5): FOV of the last editor preview ({@link #setRollAndFOV}),
+     * shown while the camera editor is open even when no playback runs —
+     * legacy got the same effect by writing the vanilla option. Null until the
+     * editor previews something; cleared when the editor opens.
+     */
+    public Float previewFov;
 
     public float getRoll(float partialTicks)
     {

@@ -1,6 +1,7 @@
 package mchorse.blockbuster.mixin;
 
 import mchorse.blockbuster.recording.capturing.ActionHandler;
+import mchorse.blockbuster.recording.capturing.WorldEventListener;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,6 +26,13 @@ public abstract class EntityMixin
         {
             ActionHandler.onPlayerMountsSomething(player, entity, true);
         }
+    }
+
+    /** wixo (R1): damage control journals an entity before it is destroyed. */
+    @Inject(method = "setRemoved(Lnet/minecraft/entity/Entity$RemovalReason;)V", at = @At("HEAD"))
+    private void blockbuster$onSetRemoved(Entity.RemovalReason reason, CallbackInfo info)
+    {
+        WorldEventListener.onEntityRemoved((Entity) (Object) this, reason);
     }
 
     @Inject(method = "stopRiding()V", at = @At("HEAD"))

@@ -349,7 +349,7 @@ public class SceneManager
                     if (!CommonProxy.manager.recorders.containsKey(player))
                     {
                         this.put(filename, scene);
-                        scene.startPlayback(record, offset);
+                        scene.startPlayback(record, offset, player);
                     }
                     else
                     {

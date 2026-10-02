@@ -5,6 +5,7 @@ import mchorse.blockbuster.recording.data.Frame;
 import mchorse.blockbuster.utils.EntityUtils;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
 import net.minecraft.nbt.NbtCompound;
@@ -56,6 +57,13 @@ public class ItemUseBlockAction extends ItemUseAction
         this.hitZ = hitZ;
     }
 
+    /** wixo (R2): replayed by a fast-forward through the timeline. */
+    @Override
+    public boolean modifiesWorld()
+    {
+        return true;
+    }
+
     /**
      * Legacy {@code item.getItem().onItemUse(player, actor.world, pos, hand,
      * facing, hitX, hitY, hitZ)} → yarn
@@ -79,13 +87,6 @@ public class ItemUseBlockAction extends ItemUseAction
     @Override
     public void apply(LivingEntity actor)
     {
-        ItemStack item = actor.getStackInHand(this.hand);
-
-        if (item == null || item.isEmpty())
-        {
-            return;
-        }
-
         RecordPlayer record = EntityUtils.getRecordPlayer(actor);
 
         if (record == null)
@@ -101,7 +102,29 @@ public class ItemUseBlockAction extends ItemUseAction
             return;
         }
 
+        /* wixo (CDC §6, R3): replay the click the way the server ran it
+         * (ServerPlayerInteractionManager.interactBlock), and tell the
+         * interact_block recorded with it that the click is done. */
+        RightClickReplay.mark(actor, this.pos, record.tick);
         this.copyActor(actor, player, frame);
+
+        boolean holding = !player.getMainHandStack().isEmpty() || !player.getOffHandStack().isEmpty();
+
+        /* 1. The block reacts first, unless the player sneaks holding something */
+        if (!(frame.isSneaking && holding) && InteractBlockAction.useBlock(actor.getWorld(), player, frame, this.pos, this.hand, this.hitResult()))
+        {
+            return;
+        }
+
+        ItemStack item = actor.getStackInHand(this.hand);
+
+        /* 2. Then the held item. A block item is placed by the place_block
+         * action recorded with it, with the exact state; placing it here too
+         * made the second, sometimes misplaced, copy. */
+        if (item == null || item.isEmpty() || item.getItem() instanceof BlockItem)
+        {
+            return;
+        }
 
         ItemStack stack = actor.getStackInHand(this.hand);
 

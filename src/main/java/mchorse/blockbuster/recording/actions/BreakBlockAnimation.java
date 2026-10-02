@@ -30,7 +30,11 @@ public class BreakBlockAnimation extends InteractBlockAction
     @Override
     public void apply(LivingEntity actor)
     {
-        actor.getWorld().setBlockBreakingInfo(-1, this.pos, this.progress);
+        /* wixo (CDC §6, R3): the actor is the breaker. Legacy used -1 for every
+         * actor: the client keeps one crack per breaker id, so two actors mining
+         * at once stole each other's crack, and BreakBlockAction (which clears
+         * the actor's own id) never cleared it. */
+        actor.getWorld().setBlockBreakingInfo(actor.getId(), this.pos, this.progress);
     }
 
     @Override

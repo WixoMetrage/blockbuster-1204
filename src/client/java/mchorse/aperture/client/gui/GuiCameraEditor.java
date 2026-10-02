@@ -168,6 +168,10 @@ public class GuiCameraEditor extends GuiBase
      */
     public Position lastPosition = new Position(0, 0, 0, 0, 0);
 
+    /** wixo: where the player stood when the editor opened (return_on_exit). */
+    private final Position entryPosition = new Position(0, 0, 0, 0, 0);
+    private boolean hasEntryPosition;
+
     /**
      * Map of created fixture panels
      */
@@ -1076,6 +1080,11 @@ public class GuiCameraEditor extends GuiBase
 
         this.maxScrub = 0;
         this.haveScrubbed = false;
+        ClientProxy.control.previewFov = null;
+
+        /* wixo: closeScreen puts the player back here (aperture.editor.return_on_exit) */
+        this.entryPosition.set(player);
+        this.hasEntryPosition = true;
 
         this.updateOverlay();
         this.position.set(player);
@@ -1548,6 +1557,13 @@ public class GuiCameraEditor extends GuiBase
         }
 
         ClientProxy.control.restore();
+
+        if (this.hasEntryPosition && Aperture.editorReturnOnExit.get() && mc != null && mc.player != null)
+        {
+            this.entryPosition.apply(mc.player);
+        }
+
+        this.hasEntryPosition = false;
 
         super.closeScreen();
     }

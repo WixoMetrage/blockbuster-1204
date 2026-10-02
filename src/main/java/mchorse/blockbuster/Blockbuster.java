@@ -141,7 +141,13 @@ public class Blockbuster implements ModInitializer
     public static ValueInt recordUnloadTime = new ValueInt("record_unload_time", 2400, 600, 72000);
     public static ValueBoolean recordUnload = new ValueBoolean("record_unload", true);
     public static ValueInt recordSyncRate = new ValueInt("record_sync_rate", 6, 1, 30);
+    /* wixo (CDC §6, R3): superseded by recordSwipeAttacks — kept (hidden) so
+     * existing configs keep their key, no longer read. It defaulted to true and
+     * every saved config holds that value, hence a new key rather than a new
+     * default. */
     public static ValueBoolean recordAttackOnSwipe = new ValueBoolean("record_attack_on_swipe", true);
+    /* wixo (R3): off = only real hits are recorded as attacks */
+    public static ValueBoolean recordSwipeAttacks = new ValueBoolean("record_swipe_attacks", false);
     public static ValueBoolean recordCommands = new ValueBoolean("record_commands", true);
     public static ValueString recordChatPrefix = new ValueString("record_chat_prefix", "");
     public static ValueBoolean recordPausePreview = new ValueBoolean("record_pause_preview", true);
@@ -159,6 +165,8 @@ public class Blockbuster implements ModInitializer
     public static ValueBoolean actorFallDamage = new ValueBoolean("actor_fall_damage", true);
     public static ValueBoolean actorPlaybackBodyYaw = new ValueBoolean("actor_playback_body_yaw", true);
     public static ValueBoolean damageControl = new ValueBoolean("damage_control", true);
+    /* wixo (CDC §6, R1): no radius by default; damage_control_distance only applies when this is on */
+    public static ValueBoolean damageControlLimit = new ValueBoolean("damage_control_limit", false);
     public static ValueInt damageControlDistance = new ValueInt("damage_control_distance", 64, 1, 1024);
     public static ValueBoolean damageControlMessage = new ValueBoolean("damage_control_message", false);
 
@@ -503,7 +511,8 @@ public class Blockbuster implements ModInitializer
         builder.register(recordUnloadTime);
         builder.register(recordUnload);
         builder.register(recordSyncRate);
-        builder.register(recordAttackOnSwipe);
+        builder.register(recordAttackOnSwipe.invisible());
+        builder.register(recordSwipeAttacks);
         builder.register(recordCommands);
         builder.register(recordChatPrefix);
         builder.register(recordPausePreview);
@@ -534,6 +543,7 @@ public class Blockbuster implements ModInitializer
 
         /* Damage control category (all server-side). */
         builder.category("damage_control").register(damageControl);
+        builder.register(damageControlLimit);
         builder.register(damageControlDistance);
         builder.register(damageControlMessage);
 

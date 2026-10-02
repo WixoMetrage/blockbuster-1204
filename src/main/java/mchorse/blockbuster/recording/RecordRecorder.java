@@ -176,23 +176,28 @@ public class RecordRecorder
 
         if (this.offset > 0)
         {
-            List<List<Action>> actions = this.record.actions;
-            int newSize = this.offset + actions.size();
-
-            this.record.actions = oldRecord.actions;
-
-            if (this.record.actions.size() < newSize)
-            {
-                while (this.record.actions.size() < newSize)
-                {
-                    this.record.actions.add(null);
-                }
-            }
-
-            for (int i = 0; i < actions.size(); i++)
-            {
-                this.record.addActions(this.offset + i, actions.get(i));
-            }
+            this.record.actions = splice(oldRecord.actions, this.record.actions, this.offset);
         }
+    }
+
+    /**
+     * wixo (CDC §6, R4): a take re-recorded from {@code offset} keeps the old
+     * ticks before it and replaces everything from it on — the frames do the
+     * same ({@code FrameChunk.compile}). Legacy merged the new actions into the
+     * old ones tick by tick and kept the old ones past the new portion, so a
+     * re-recorded block placement came on top of the old one.
+     */
+    public static <T> List<T> splice(List<T> old, List<T> taken, int offset)
+    {
+        List<T> output = new ArrayList<T>(offset + taken.size());
+
+        for (int i = 0; i < offset; i++)
+        {
+            output.add(i < old.size() ? old.get(i) : null);
+        }
+
+        output.addAll(taken);
+
+        return output;
     }
 }

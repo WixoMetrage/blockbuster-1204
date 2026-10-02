@@ -109,12 +109,19 @@ processResources {
 
 // CDC §2.7: headless unit tests (no OpenGL) live in src/test and run with
 // `build` through `check`.
+// Camera and replay logic (Aperture profiles, modifiers, actions) runs on
+// Minecraft's classes and bundled libraries (gson, log4j, NBT, BlockPos):
+// tests compile and run against the main compile classpath. No game
+// bootstrap happens, so tests stay headless.
+sourceSets {
+	test {
+		compileClasspath += sourceSets.main.compileClasspath
+		runtimeClasspath += sourceSets.main.compileClasspath
+	}
+}
+
 test {
 	useJUnitPlatform()
-	// Camera logic (Aperture profiles, modifiers) runs on Minecraft's bundled
-	// libraries (gson, log4j, McLib values): put the main compile classpath on
-	// the test runtime. No game bootstrap happens, so tests stay headless.
-	classpath += sourceSets.main.compileClasspath
 }
 
 tasks.withType(JavaCompile).configureEach {

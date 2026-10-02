@@ -99,16 +99,13 @@ public class RecordManager
      */
     public boolean record(String filename, PlayerEntity player, Mode mode, boolean teleportBack, boolean notify, int offset, Runnable runnable)
     {
+        /* wixo (CDC §6, R4): no more replay of the old take's actions on the
+         * player from the offset on. That portion is being replaced, and its
+         * replayed actions were captured again into the new take (a replayed
+         * block placement recorded as a new one). The world is brought to the
+         * offset by the scene instead (Scene.startPlayback). */
         Runnable proxy = () ->
         {
-            if (offset > 0 && this.records.get(filename) != null && notify)
-            {
-                RecordPlayer recordPlayer = this.play(filename, player, Mode.ACTIONS, false);
-
-                recordPlayer.tick = offset;
-                EntityUtils.setRecordPlayer(player, recordPlayer.realPlayer());
-            }
-
             if (runnable != null)
             {
                 runnable.run();
@@ -151,7 +148,7 @@ public class RecordManager
         else
         {
             this.setupPlayerData(recorder, player);
-            CommonProxy.damage.addDamageControl(recorder, player);
+            CommonProxy.damage.addDamageControl(recorder, player, () -> recorder.tick);
 
             this.scheduled.put(player, new ScheduledRecording(recorder, (ServerPlayerEntity) player, proxy, (int) (Blockbuster.recordingCountdown.get() * 20), offset));
         }
