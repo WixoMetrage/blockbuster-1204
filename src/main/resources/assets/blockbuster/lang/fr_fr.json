@@ -85,5 +85,7 @@
   "blockbuster.config.damage_control.damage_control_limit": "Limiter la distance",
   "blockbuster.config.comments.damage_control.damage_control_limit": "Désactivé : tout ce qui change dans le monde pendant une lecture ou un enregistrement est réparé. Activé : seulement dans la distance ci-dessous, autour du premier acteur ou du joueur qui enregistre",
   "blockbuster.config.damage_control.damage_control_distance": "Distance",
-  "blockbuster.config.comments.damage_control.damage_control_distance": "Rayon de la réparation (seulement si la distance est limitée)"
+  "blockbuster.config.comments.damage_control.damage_control_distance": "Rayon de la réparation (seulement si la distance est limitée)",
+  "blockbuster.config.recording.record_swipe_attacks": "Attaque à chaque mouvement de bras",
+  "blockbuster.config.comments.recording.record_swipe_attacks": "Désactivé : une attaque n'est enregistrée que quand tu frappes vraiment une entité. Activé (ancien comportement) : chaque mouvement de bras est enregistré comme une attaque, qui frappe ce qui se trouve devant l'acteur à la relecture"
 }

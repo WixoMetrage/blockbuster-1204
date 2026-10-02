@@ -6,6 +6,7 @@ import mchorse.blockbuster.utils.EntityUtils;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Hand;
@@ -52,7 +53,10 @@ public class ItemUseAction extends Action
     {
         ItemStack item = actor.getStackInHand(this.hand);
 
-        if (item == null || item.isEmpty())
+        /* wixo (CDC §6, R3): a full bucket's fluid is a place_block of its own
+         * (BucketItemMixin); using the bucket again poured a second one
+         * wherever the actor happened to look. */
+        if (item == null || item.isEmpty() || item.isOf(Items.WATER_BUCKET) || item.isOf(Items.LAVA_BUCKET))
         {
             return;
         }

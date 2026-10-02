@@ -13,6 +13,7 @@
 		"CommandManagerMixin",
 		"EntityMixin",
 		"EntityStepSoundAccessor",
+		"ExplosionMixin",
 		"LevelPropertiesAccessor",
 		"LivingEntityDamageControlMixin",
 		"LivingEntityAccessor",

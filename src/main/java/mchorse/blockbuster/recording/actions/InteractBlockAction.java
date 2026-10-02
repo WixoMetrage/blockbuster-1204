@@ -97,11 +97,10 @@ public class InteractBlockAction extends Action
             return;
         }
 
-        World world = actor.getWorld();
-        BlockState state = world.getBlockState(this.pos);
-
-        /* Black listed block */
-        if (state.getBlock() instanceof BlockDirector)
+        /* wixo (CDC §6, R3): the use_item_block action recorded with this one
+         * already replayed the click, block first like the server did. Legacy
+         * applied both: the block reacted, and the item was used on it too. */
+        if (RightClickReplay.consume(actor, this.pos, record.tick))
         {
             return;
         }
@@ -119,15 +118,35 @@ public class InteractBlockAction extends Action
             this.copyActor(actor, player, frame);
         }
 
-        if (!LTHelper.playerRightClickServer(player, frame))
-        {
-            if (BLACKLIST.contains(Registries.BLOCK.getId(state.getBlock())))
-            {
-                return;
-            }
+        useBlock(actor.getWorld(), player, frame, this.pos, Hand.MAIN_HAND, this.hitResult());
+    }
 
-            state.onUse(world, player, Hand.MAIN_HAND, this.hitResult());
+    /**
+     * The block half of a right click: director-block skip, the LittleTiles
+     * bridge, the blacklist, then {@code onUse}. Returns whether the block
+     * took the click (then the held item is not used).
+     */
+    public static boolean useBlock(World world, PlayerEntity player, Frame frame, BlockPos pos, Hand hand, BlockHitResult hit)
+    {
+        BlockState state = world.getBlockState(pos);
+
+        /* Black listed block */
+        if (state.getBlock() instanceof BlockDirector)
+        {
+            return false;
         }
+
+        if (LTHelper.playerRightClickServer(player, frame))
+        {
+            return true;
+        }
+
+        if (BLACKLIST.contains(Registries.BLOCK.getId(state.getBlock())))
+        {
+            return false;
+        }
+
+        return state.onUse(world, player, hand, hit).isAccepted();
     }
 
     /**

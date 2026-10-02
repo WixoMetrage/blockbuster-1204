@@ -9,6 +9,8 @@ import mchorse.blockbuster.recording.scene.SceneSeek;
 import net.minecraft.block.BlockState;
 import net.minecraft.command.argument.BlockArgumentParser;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.Registries;
@@ -57,8 +59,10 @@ import net.minecraft.world.World;
  * non-empty, so every 2.7.2 record (and every record this port wrote before
  * P296) resaves byte-identically and still resolves through
  * {@link LegacyIdMap#blockState(String, int)}; a 1.12.2 reader would ignore an
- * unknown extra key anyway. The bucket-placement capture path deliberately
- * carries <b>no</b> state — see {@code ActionHandler.captureBucket}.</p>
+ * unknown extra key anyway. Bucket captures made before wixo R3 carry
+ * <b>no</b> state (flowing_water / flowing_lava, meta 0, next to the aimed
+ * block). Since wixo R3 a bucket is captured with
+ * its resulting state, see {@code ActionHandler.onPlayerPlacedFluid}.</p>
  *
  * <p>{@link #changeOrigin} / {@link #flip} do <b>not</b> transform the state:
  * legacy never rotated or mirrored the stored metadata either, so a flipped
@@ -184,7 +188,25 @@ public class PlaceBlockAction extends InteractBlockAction
             return;
         }
 
-        world.setBlockState(this.pos, this.resolveState());
+        BlockState state = this.resolveState();
+
+        world.setBlockState(this.pos, state);
+
+        /* wixo (CDC §6, R3): what BlockItem.place does after setting the block.
+         * The second half of a door, bed or tall plant is placed by onPlaced;
+         * legacy got it from replaying the item use on top of this action,
+         * which also placed a second block. A fluid (bucket, waterlogging)
+         * starts flowing as it did in the take. */
+        ItemStack held = actor.getMainHandStack();
+
+        state.getBlock().onPlaced(world, this.pos, state, actor, held.isEmpty() ? ItemStack.EMPTY : held.copy());
+
+        FluidState fluid = state.getFluidState();
+
+        if (!fluid.isEmpty())
+        {
+            world.scheduleFluidTick(this.pos, fluid.getFluid(), fluid.getFluid().getTickRate(world));
+        }
 
         BlockSoundGroup sound = world.getBlockState(this.pos).getSoundGroup();
 

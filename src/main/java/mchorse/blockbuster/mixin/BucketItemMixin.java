@@ -3,13 +3,8 @@ package mchorse.blockbuster.mixin;
 import mchorse.blockbuster.recording.capturing.ActionHandler;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BucketItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,37 +12,26 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Legacy {@code FillBucketEvent} replacement — bucket placement fires no
- * place event, so water/lava bucket use is captured here with the same
- * raycast the vanilla bucket does for emptying ({@code FluidHandling.NONE},
- * matching 1.12.2's {@code rayTrace(world, player, false)}).
+ * Bucket placement fires no place event, so here's mchorse's hack for
+ * placing water and lava blocks.
  *
- * <p>Extends {@link Item} only to reach the protected static
- * {@code raycast} helper.</p>
+ * <p>wixo (CDC §6, R3): captured from the result, at the RETURN of
+ * {@code placeFluid}, where the fluid actually went. Legacy guessed it at the
+ * start of {@code use} as "next to the block aimed at", which is wrong
+ * whenever vanilla fills the aimed block itself (tall grass, a waterloggable
+ * block, a cauldron...). {@code placeFluid} retries itself next to the block
+ * when the first spot refuses: only the call that left a fluid at its
+ * position is recorded.</p>
  */
 @Mixin(BucketItem.class)
-public abstract class BucketItemMixin extends Item
+public abstract class BucketItemMixin
 {
-    public BucketItemMixin(Settings settings)
+    @Inject(method = "placeFluid(Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/hit/BlockHitResult;)Z", at = @At("RETURN"))
+    private void blockbuster$onPlaceFluid(PlayerEntity player, World world, BlockPos pos, BlockHitResult hit, CallbackInfoReturnable<Boolean> cir)
     {
-        super(settings);
-    }
-
-    @Inject(method = "use", at = @At("HEAD"))
-    private void blockbuster$onUseBucket(World world, PlayerEntity user, Hand hand, CallbackInfoReturnable<TypedActionResult<ItemStack>> cir)
-    {
-        if (world.isClient())
+        if (cir.getReturnValueZ() && player != null && !world.isClient() && !world.getFluidState(pos).isEmpty())
         {
-            return;
-        }
-
-        ItemStack stack = user.getStackInHand(hand);
-
-        if (stack.isOf(Items.WATER_BUCKET) || stack.isOf(Items.LAVA_BUCKET))
-        {
-            BlockHitResult target = raycast(world, user, RaycastContext.FluidHandling.NONE);
-
-            ActionHandler.onPlayerUseBucket(user, stack, target);
+            ActionHandler.onPlayerPlacedFluid(player, world, pos);
         }
     }
 }

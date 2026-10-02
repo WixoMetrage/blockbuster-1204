@@ -12,6 +12,7 @@ import mchorse.blockbuster.recording.actions.BreakBlockAction;
 import mchorse.blockbuster.recording.actions.ChatAction;
 import mchorse.blockbuster.recording.actions.CommandAction;
 import mchorse.blockbuster.recording.actions.DropAction;
+import mchorse.blockbuster.recording.actions.ExplosionAction;
 import mchorse.blockbuster.recording.actions.InteractBlockAction;
 import mchorse.blockbuster.recording.actions.InteractEntityAction;
 import mchorse.blockbuster.recording.actions.ItemUseAction;
@@ -21,6 +22,7 @@ import mchorse.blockbuster.recording.actions.MorphActionAction;
 import mchorse.blockbuster.recording.actions.MountingAction;
 import mchorse.blockbuster.recording.actions.PlaceBlockAction;
 import mchorse.blockbuster.recording.actions.ShootArrowAction;
+import mchorse.blockbuster.recording.scene.Scene;
 import mchorse.blockbuster.utils.EntityUtils;
 import mchorse.metamorph.api.MetamorphEvents;
 import mchorse.metamorph.api.events.MorphActionEvent;
@@ -39,6 +41,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
@@ -50,6 +53,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.world.explosion.Explosion;
 import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -58,7 +62,9 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Event handler for recording purposes (legacy {@code capturing/ActionHandler},
@@ -168,9 +174,27 @@ public class ActionHandler
      * action list, then defer to the package-visible capture seams (which
      * headless tests drive directly, since real players can't exist there) */
 
+    /**
+     * wixo (CDC §6, R3): the player's pending actions, with the held items
+     * recorded first. The tracker only noticed a hotbar switch at the end of
+     * the tick, after the use it led to: switching to a sword and hitting in
+     * the same tick replayed the hit with the previous item.
+     */
+    private static List<Action> actionsWithHeldItem(PlayerEntity player)
+    {
+        RecordRecorder recorder = player.getWorld().isClient() ? null : CommonProxy.manager.recorders.get(player);
+
+        if (recorder != null && recorder.tracker != null)
+        {
+            recorder.tracker.trackHeldItem(player.getMainHandStack(), player.getOffHandStack(), player.getInventory().selectedSlot);
+        }
+
+        return CommonProxy.manager.getActions(player);
+    }
+
     public static void onItemUse(PlayerEntity player, Hand hand)
     {
-        List<Action> events = CommonProxy.manager.getActions(player);
+        List<Action> events = actionsWithHeldItem(player);
 
         if (!player.getWorld().isClient() && events != null)
         {
@@ -180,7 +204,7 @@ public class ActionHandler
 
     public static void onItemUseBlock(PlayerEntity player, Hand hand, BlockHitResult hit)
     {
-        List<Action> events = CommonProxy.manager.getActions(player);
+        List<Action> events = actionsWithHeldItem(player);
 
         if (!player.getWorld().isClient() && events != null)
         {
@@ -190,7 +214,7 @@ public class ActionHandler
 
     public static void onRightClickEntity(PlayerEntity player, Hand hand)
     {
-        List<Action> events = CommonProxy.manager.getActions(player);
+        List<Action> events = actionsWithHeldItem(player);
 
         if (!player.getWorld().isClient() && events != null)
         {
@@ -200,7 +224,7 @@ public class ActionHandler
 
     public static void onPlayerBreaksBlock(PlayerEntity player, BlockPos pos)
     {
-        List<Action> events = CommonProxy.manager.getActions(player);
+        List<Action> events = actionsWithHeldItem(player);
 
         if (!player.getWorld().isClient() && events != null)
         {
@@ -210,7 +234,7 @@ public class ActionHandler
 
     public static void onPlayerAttack(PlayerEntity player)
     {
-        List<Action> events = CommonProxy.manager.getActions(player);
+        List<Action> events = actionsWithHeldItem(player);
 
         if (!player.getWorld().isClient() && events != null)
         {
@@ -243,16 +267,17 @@ public class ActionHandler
     }
 
     /**
-     * Called by {@code BucketItemMixin} — bucket placement fires no place
-     * event, so here's mchorse's hack for placing water and lava blocks.
+     * Called by {@code BucketItemMixin} once a bucket has really put its fluid
+     * at {@code pos}: recorded as the resulting block state (a water source,
+     * or a waterlogged block), wixo R3.
      */
-    public static void onPlayerUseBucket(PlayerEntity player, ItemStack stack, BlockHitResult target)
+    public static void onPlayerPlacedFluid(PlayerEntity player, World world, BlockPos pos)
     {
         List<Action> events = CommonProxy.manager.getActions(player);
 
-        if (!player.getWorld().isClient() && events != null)
+        if (events != null)
         {
-            captureBucket(events, stack, target);
+            capturePlaceBlock(events, pos.toImmutable(), world.getBlockState(pos));
         }
     }
 
@@ -276,7 +301,7 @@ public class ActionHandler
      */
     public static void onArrowLoose(PlayerEntity player, int charge)
     {
-        List<Action> events = CommonProxy.manager.getActions(player);
+        List<Action> events = actionsWithHeldItem(player);
 
         if (!player.getWorld().isClient() && events != null)
         {
@@ -389,44 +414,14 @@ public class ActionHandler
 
     /**
      * Legacy gate: AttackEntityEvent only records when the PlayerTracker
-     * swing path is off ({@code record_attack_on_swipe} false; the tracker
-     * path is the default and lands with P114).
+     * swing path is off. wixo R3: that is now the default
+     * ({@code record_swipe_attacks} false), so only real hits are attacks.
      */
     static void captureAttack(List<Action> events)
     {
-        if (!Blockbuster.recordAttackOnSwipe.get())
+        if (!Blockbuster.recordSwipeAttacks.get())
         {
             events.add(new AttackAction());
-        }
-    }
-
-    /**
-     * The stored names are the pre-flattening {@code flowing_water}/
-     * {@code flowing_lava} ids with meta 0 — load-bearing: that's what
-     * 1.12.2 wrote, and the P71 shim resolves them on apply.
-     *
-     * <p>Deliberately routed through the <b>stateless</b>
-     * {@link #capturePlaceBlock(List, BlockPos, byte, String)} seam: the two
-     * legacy ids are not 1.20.4 blocks at all, so there is no
-     * {@link BlockState} to stringify, and inventing one ({@code water[level=0]})
-     * would replace the quirk with a guess. P296 does not touch this path.</p>
-     */
-    static void captureBucket(List<Action> events, ItemStack stack, BlockHitResult target)
-    {
-        if (target == null || target.getType() != HitResult.Type.BLOCK)
-        {
-            return;
-        }
-
-        BlockPos pos = target.getBlockPos().offset(target.getSide());
-
-        if (stack.isOf(Items.LAVA_BUCKET))
-        {
-            capturePlaceBlock(events, pos, (byte) 0, "minecraft:flowing_lava");
-        }
-        else if (stack.isOf(Items.WATER_BUCKET))
-        {
-            capturePlaceBlock(events, pos, (byte) 0, "minecraft:flowing_water");
         }
     }
 
@@ -464,6 +459,86 @@ public class ActionHandler
     static void capturePlaceBlock(List<Action> events, BlockPos pos, byte metadata, String block, String state)
     {
         events.add(new PlaceBlockAction(pos, metadata, block, state));
+    }
+
+    /**
+     * wixo (CDC §6, R3): an explosion is about to destroy its blocks
+     * ({@code ExplosionMixin}, HEAD of {@code Explosion.affectWorld}).
+     *
+     * <ul>
+     * <li>While a scene plays in this world, an explosion not set off by a
+     * recording player is a replayed one: it destroys nothing, the
+     * {@link ExplosionAction} recorded in the take removes the same blocks at
+     * the same tick. Its blast on entities, sound and particles stay.</li>
+     * <li>While someone records, the blocks it destroys are recorded as an
+     * {@link ExplosionAction}: on the recording player who set it off, or else
+     * on the first recorder in this world.</li>
+     * </ul>
+     */
+    public static void onExplosion(World world, Explosion explosion)
+    {
+        if (world.isClient())
+        {
+            return;
+        }
+
+        LivingEntity cause = explosion.getCausingEntity();
+        RecordManager manager = CommonProxy.manager;
+        boolean byRecorder = cause instanceof PlayerEntity player && manager.recorders.containsKey(player);
+
+        if (!byRecorder && isScenePlaying(world))
+        {
+            explosion.clearAffectedBlocks();
+
+            return;
+        }
+
+        RecordRecorder target = byRecorder ? manager.recorders.get((PlayerEntity) cause) : null;
+
+        if (target == null)
+        {
+            for (Map.Entry<PlayerEntity, RecordRecorder> entry : manager.recorders.entrySet())
+            {
+                if (entry.getKey().getWorld() == world)
+                {
+                    target = entry.getValue();
+
+                    break;
+                }
+            }
+        }
+
+        if (target == null || target.tracker == null)
+        {
+            return;
+        }
+
+        List<BlockPos> blocks = new ArrayList<>();
+
+        for (BlockPos pos : explosion.getAffectedBlocks())
+        {
+            if (!world.getBlockState(pos).isAir())
+            {
+                blocks.add(pos.toImmutable());
+            }
+        }
+
+        /* Set off by the recording player: the actor sets it off again on
+         * playback, and that real explosion plays the sound and particles. */
+        target.actions.add(new ExplosionAction(explosion.getPosition(), blocks, !byRecorder));
+    }
+
+    private static boolean isScenePlaying(World world)
+    {
+        for (Scene scene : CommonProxy.scenes.getScenes().values())
+        {
+            if (scene.playing && scene.getWorld() == world)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static void captureCommand(List<Action> events, String command)

@@ -162,7 +162,7 @@ public class PlayerTracker
         {
             this.recorder.actions.add(new SwipeAction());
 
-            if (Blockbuster.recordAttackOnSwipe.get())
+            if (Blockbuster.recordSwipeAttacks.get())
             {
                 this.recorder.actions.add(new AttackAction());
             }
