@@ -585,7 +585,7 @@ public class ApertureClient
 
         if (ClientProxy.renderer.smoothFovActive)
         {
-            return ClientProxy.renderer.fov.value;
+            return ClientProxy.renderer.smoothFov;
         }
 
         return null;

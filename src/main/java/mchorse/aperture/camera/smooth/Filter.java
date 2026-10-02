@@ -1,6 +1,7 @@
 package mchorse.aperture.camera.smooth;
 
 import mchorse.mclib.config.values.ValueFloat;
+import mchorse.mclib.config.values.ValueInt;
 import mchorse.mclib.utils.Interpolations;
 
 /**
@@ -9,8 +10,16 @@ import mchorse.mclib.utils.Interpolations;
  * Used for animation camera roll and FOV.
  *
  * Port notes: acceleration is zeroed in the {@code |acc| < 0.005} dead
- * zone; {@link #interpolate(float)} <b>mutates</b> the value while lerping
- * prev→value — exactly one call per frame is load-bearing. Verbatim.
+ * zone.
+ *
+ * <p>wixo.1 (CDC §5, C6): legacy added {@code acc} to the value in
+ * {@code interpolate}, i.e. once per <b>frame</b>, while {@code acc} itself
+ * is updated once per tick: the smooth roll/FOV ran three times faster at
+ * 60 fps than at 20, and a recording at a fixed frame rate did not move like
+ * the live preview. The value now advances in {@link #accelerate} (once per
+ * tick) by {@code acc × reference / 20}, and {@link #interpolate} only lerps
+ * between the last two ticks. With the default reference of 60 fps the speed
+ * is the legacy speed at 60 fps, at any frame rate.</p>
  *
  * Legacy source: .tools/legacy-src/aperture/src/main/java/mchorse/aperture/camera/smooth/Filter.java
  */
@@ -43,6 +52,12 @@ public class Filter
     public ValueFloat factor;
 
     /**
+     * wixo.1 (C6): the frame rate the legacy per-frame speed is matched at
+     * ({@code aperture.smooth.reference_fps}); null means 20 (one step per tick).
+     */
+    public ValueInt reference;
+
+    /**
      * Set the value for the filter
      */
     public void set(float value)
@@ -62,7 +77,7 @@ public class Filter
     }
 
     /**
-     * Accelerate the acceleration
+     * Accelerate the acceleration and advance the value by one tick
      */
     public void accelerate(float value)
     {
@@ -73,22 +88,21 @@ public class Filter
         {
             this.acc = 0.0F;
         }
+
+        this.prevValue = this.value;
+        this.value += this.acc * this.stepsPerTick();
+    }
+
+    private float stepsPerTick()
+    {
+        return this.reference == null ? 1F : this.reference.get() / 20F;
     }
 
     /**
-     * Interpolate the value
-     *
-     * This method also changes the value of the filter, be careful with
-     * it.
+     * The value at this frame, between the last two ticks
      */
     public float interpolate(float ticks)
     {
-        float result;
-
-        this.value += this.acc;
-        result = Interpolations.lerp(this.prevValue, this.value, ticks);
-        this.prevValue = this.value;
-
-        return result;
+        return Interpolations.lerp(this.prevValue, this.value, ticks);
     }
 }

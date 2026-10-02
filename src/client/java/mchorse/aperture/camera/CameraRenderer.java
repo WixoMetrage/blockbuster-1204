@@ -73,6 +73,9 @@ public class CameraRenderer
     /** Smooth-camera FOV override active (fov filter accelerating) */
     public boolean smoothFovActive;
 
+    /** Smooth-camera FOV of the current frame (valid while {@link #smoothFovActive}) */
+    public float smoothFov;
+
     public void accumulateMouse(double dx, double dy)
     {
         this.mouseDX += dx;
@@ -181,8 +184,10 @@ public class CameraRenderer
 
         if (this.fov.acc != 0.0F)
         {
-            this.fov.interpolate(ticks);
+            /* wixo.1 (C6): the filter advances per tick; the frame gets the
+             * interpolated value (it used to read the end-of-tick value). */
             this.fov.value = MathHelper.clamp(this.fov.value, 0.0001F, 179.9999F);
+            this.smoothFov = MathHelper.clamp(this.fov.interpolate(ticks), 0.0001F, 179.9999F);
 
             this.smoothFovActive = true;
         }
