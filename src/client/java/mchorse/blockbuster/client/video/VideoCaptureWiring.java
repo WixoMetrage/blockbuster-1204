@@ -67,6 +67,11 @@ public final class VideoCaptureWiring
         /* wixo.1 (CDC R1/R7): resolution presets and encoder selector in the config panel. */
         VideoConfigGui.register();
 
+        /* video.debug: the Aperture camera state behind each captured frame. */
+        VideoCapture.frameState = () -> "camera running=" + mchorse.aperture.ClientProxy.runner.isRunning()
+            + " tick=" + mchorse.aperture.ClientProxy.runner.ticks
+            + " partial=" + mchorse.aperture.ClientProxy.runner.lastPartialTick;
+
         /* S22 P270: the GL half of custom-resolution capture. Without this
          * assignment CustomResolutionCapture.swap keeps its refuse-everything
          * default and every recording is made at the window size — which is

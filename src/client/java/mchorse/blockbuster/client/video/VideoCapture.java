@@ -37,6 +37,11 @@ public class VideoCapture implements MinemaBackend.Capture
 
     private boolean active;
 
+    /** video.debug: camera state logged with each captured frame (installed by {@link VideoCaptureWiring}). */
+    public static java.util.function.Supplier<String> frameState = () -> "";
+
+    private int captured;
+
     /** The recorder this controller drives (exposed for tests / debug overlays). */
     public VideoRecorder recorder()
     {
@@ -53,6 +58,7 @@ public class VideoCapture implements MinemaBackend.Capture
 
         this.recorder.debug = VideoConfig.debug();
         this.recorder.startRecording(params, this.frameSource(params), ffmpegPath, ffmpegAvailable, encoderLog);
+        this.captured = 0;
         this.active = this.recorder.isRecording();
 
         if (this.active)
@@ -155,6 +161,13 @@ public class VideoCapture implements MinemaBackend.Capture
         if (!this.active || !CaptureClock.canRender())
         {
             return;
+        }
+
+        if (this.recorder.debug)
+        {
+            /* video.debug: what the camera was doing for each captured frame
+             * (diagnoses frames captured before/after an Aperture profile). */
+            LOGGER.info("[debug] capture #{}: {}", this.captured++, frameState.get());
         }
 
         this.recorder.recordFrame();
