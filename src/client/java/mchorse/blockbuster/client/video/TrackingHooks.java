@@ -110,12 +110,14 @@ public final class TrackingHooks
      */
     private static CameraExporter.CaptureInfo captureInfo()
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        VideoParams params = VideoCaptureWiring.CAPTURE.recorder().params();
 
-        int width = mc == null || mc.getWindow() == null ? 0 : mc.getWindow().getFramebufferWidth();
-        int height = mc == null || mc.getWindow() == null ? 0 : mc.getWindow().getFramebufferHeight();
+        if (!VideoCaptureWiring.CAPTURE.recorder().isRecording())
+        {
+            CaptureResolution.Decision size = videoSize();
 
-        VideoParams params = MinemaBackend.buildParams("tracking", null, width, height);
+            params = MinemaBackend.buildParams("tracking", null, size.width(), size.height());
+        }
 
         return new CameraExporter.CaptureInfo(
             params.fps(),
@@ -124,6 +126,21 @@ public final class TrackingHooks
             params.heldFrames(),
             1 << params.motionBlur()
         );
+    }
+
+    /**
+     * wixo.1 (CDC R8): the size of the <i>video</i>, not of the window. While
+     * recording that is the live recording's size (above); otherwise the size a
+     * recording started now would have — the same arithmetic as the recorder.
+     */
+    private static CaptureResolution.Decision videoSize()
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int width = mc == null || mc.getWindow() == null ? 0 : mc.getWindow().getFramebufferWidth();
+        int height = mc == null || mc.getWindow() == null ? 0 : mc.getWindow().getFramebufferHeight();
+
+        return CaptureResolution.resolve(VideoConfig.width(), VideoConfig.height(), width, height,
+            CustomResolutionCapture.blocker());
     }
 
     /**

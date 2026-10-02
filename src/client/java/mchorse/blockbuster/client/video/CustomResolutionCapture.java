@@ -69,7 +69,7 @@ import java.util.function.BooleanSupplier;
  * <li><b>Window resize / {@code onResolutionChanged}</b> — driven by GLFW
  * callbacks outside the render, so a resize mid-recording behaves normally
  * rather than being cancelled the way Minema cancelled it.</li>
- * <li><b>Iris and Fabulous graphics</b> — refused outright, see
+ * <li><b>Fabulous graphics</b> (without shaders) — refused, see
  * {@link #blocker()}.</li>
  * </ul>
  *
@@ -165,10 +165,18 @@ public final class CustomResolutionCapture
      * <p>Both blockers are about something else owning the render targets:</p>
      *
      * <ul>
-     * <li><b>Iris shader pack</b> — Iris replaces the framebuffer stack
-     * wholesale; reassigning {@code MinecraftClient.framebuffer} underneath it is
-     * unsupported and is explicitly deferred to S21.</li>
-     * <li><b>Fabulous graphics</b> — {@code WorldRenderer}'s transparency
+     * <li><b>Iris shader pack</b> — no longer a blocker by default (wixo.1, CDC
+     * R2). Iris 1.7.2 re-reads {@code MinecraftClient.getFramebuffer()} every
+     * frame: {@code IrisRenderingPipeline.beginLevelRendering} resizes its
+     * render targets to it ({@code RenderTargets.resizeIfNeeded} +
+     * {@code recalculateSizes} on every composite pass) and
+     * {@code FinalPassRenderer.renderFinalPass} re-attaches its colour texture
+     * whenever the id changes. The swap below happens at {@code renderWorld}
+     * HEAD, before Iris' pipeline begins, so the whole shader pipeline runs at
+     * the capture size. Only {@code video.custom_resolution_shaders = false}
+     * restores the old refusal (the window is then scaled).</li>
+     * <li><b>Fabulous graphics</b> (without a shader pack; Iris disables
+     * Fabulous itself, {@code MixinDisableFabulousGraphics}) — {@code WorldRenderer}'s transparency
      * {@code PostEffectProcessor} holds the framebuffer it was <i>constructed</i>
      * with as its {@code minecraft:main} target (verified in the 1.20.4 bytecode:
      * {@code loadTransparencyPostProcessor()} passes {@code client.getFramebuffer()}
@@ -186,12 +194,12 @@ public final class CustomResolutionCapture
     {
         if (IrisCompat.isShaderPackInUse())
         {
-            return "an Iris shader pack is in use";
+            return VideoConfig.customResolutionShaders() ? null : "blockbuster.video.reason.shaders_option";
         }
 
         if (fabulousGraphics.getAsBoolean())
         {
-            return "Fabulous graphics is enabled";
+            return "blockbuster.video.reason.fabulous";
         }
 
         return null;

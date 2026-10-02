@@ -37,6 +37,9 @@ public class VideoCaptureKeyHandler
     private KeyBinding capture;
     private boolean registered;
 
+    /** Whether Shift was held when the capture key went down (set by {@link #onRawKey}). */
+    private boolean shiftAtPress;
+
     /** Register the binding + tick poll (idempotent). */
     public void register()
     {
@@ -75,6 +78,26 @@ public class VideoCaptureKeyHandler
         {
             this.handleCaptureKey(mc);
         }
+
+        /* A press made while a screen was open is never queued: drop its flag. */
+        this.shiftAtPress = false;
+    }
+
+    /**
+     * Raw key press, from {@code CaptureKeyMixin} ({@code Keyboard.onKey} HEAD).
+     *
+     * <p>wixo.1 fix: Shift used to be read only when the queued press was
+     * processed, on the next client tick — up to 50 ms later, more when the game
+     * lags under shaders. A quick Shift+F4 had Shift already released by then,
+     * so it started a recording instead of opening the panel. The modifiers of
+     * the press itself are now remembered.</p>
+     */
+    public void onRawKey(int key, int scancode, int modifiers)
+    {
+        if (this.capture != null && this.capture.matchesKey(key, scancode))
+        {
+            this.shiftAtPress = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        }
     }
 
     /**
@@ -84,8 +107,16 @@ public class VideoCaptureKeyHandler
     void handleCaptureKey(MinecraftClient mc)
     {
         boolean recording = MinemaIntegration.isRecording();
+        boolean shift = this.shiftAtPress || Screen.hasShiftDown();
 
-        if (Screen.hasShiftDown() && !recording)
+        /* Diagnostic (one line per key press): Shift+F4 was reported to start a
+         * recording instead of opening the panel. */
+        LOGGER.info("Capture key: shift at press {}, shift now {}, recording {}",
+            this.shiftAtPress, Screen.hasShiftDown(), recording);
+
+        this.shiftAtPress = false;
+
+        if (shift && !recording)
         {
             ScreenOpener.open(new GuiCaptureConfiguration(mc));
 

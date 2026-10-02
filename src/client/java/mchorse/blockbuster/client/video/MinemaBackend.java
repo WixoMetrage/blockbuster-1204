@@ -158,6 +158,8 @@ public class MinemaBackend implements MinemaIntegration.Backend
         String ffmpegPath = FfmpegLocator.resolve(VideoConfig.ffmpegPath());
         boolean available = FfmpegLocator.checkAvailable(ffmpegPath);
 
+        reportStart(params, size, windowWidth, windowHeight, ffmpegPath, available);
+
         params.exportDir().mkdirs();
 
         /* S21 P272.1: tell the user what a shader pack costs this take BEFORE
@@ -263,23 +265,45 @@ public class MinemaBackend implements MinemaIntegration.Backend
             VideoConfig.width(), VideoConfig.height(), windowWidth, windowHeight,
             CustomResolutionCapture.blocker());
 
-        if (decision.clamped())
-        {
-            LOGGER.warn("video.width/video.height request {}x{} but a custom capture resolution is unavailable ({}) "
-                + "— recording at the window size {}x{} instead",
-                decision.requestedWidth(), decision.requestedHeight(), decision.blocker(),
-                decision.width(), decision.height());
-
-            return decision;
-        }
-
         if (decision.custom() && !CustomResolutionCapture.engage(decision.width(), decision.height()))
         {
-            return CaptureResolution.window(windowWidth, windowHeight,
-                "the driver refused a capture framebuffer of that size");
+            decision = decision.scaled("blockbuster.video.reason.driver");
         }
 
+        LOGGER.info("Capture resolution {}x{} (window {}x{}, mode {}{})",
+            decision.width(), decision.height(), windowWidth, windowHeight, decision.mode(),
+            decision.reason() == null ? "" : ", reason " + decision.reason());
+
         return decision;
+    }
+
+    /**
+     * The in-game report of a recording that is starting (CDC R4): one white
+     * line with what is being recorded, a yellow line for each degradation,
+     * a red line when ffmpeg cannot be run.
+     */
+    private static void reportStart(VideoParams params, CaptureResolution.Decision size, int windowWidth, int windowHeight,
+        String ffmpegPath, boolean ffmpegAvailable)
+    {
+        boolean shaders = ShaderPackVideoCompat.isShaderPackInUse();
+
+        VideoMessages.info("blockbuster.video.msg.start", params.width(), params.height(),
+            !ffmpegAvailable ? "PNG" : params.format().hasAlpha() ? "ffmpeg (alpha)" : VideoConfig.encoderLabel(),
+            new VideoMessages.Tr(shaders ? "blockbuster.video.msg.shaders_on" : "blockbuster.video.msg.shaders_off"));
+
+        if (size.mode() == CaptureResolution.Mode.SCALED)
+        {
+            VideoMessages.warning("blockbuster.video.msg.scaled", windowWidth, windowHeight, new VideoMessages.Tr(size.reason()));
+        }
+        else if (size.mode() == CaptureResolution.Mode.CROPPED)
+        {
+            VideoMessages.warning("blockbuster.video.msg.cropped", windowWidth, windowHeight, new VideoMessages.Tr(size.reason()));
+        }
+
+        if (!ffmpegAvailable)
+        {
+            VideoMessages.error("blockbuster.video.msg.no_ffmpeg", ffmpegPath);
+        }
     }
 
     /**
@@ -313,7 +337,7 @@ public class MinemaBackend implements MinemaIntegration.Backend
              * folded — the BGRA arm never reached the class file, so P203's
              * alpha capture and (via fps/motion_blur/held_frames below) P199's
              * motion blur shipped as dead code. */
-            VideoConfig.alpha() ? VideoFormat.BGRA : VideoFormat.BGR,
+            EncoderPresets.inputFormat(VideoConfig.opaqueTemplate(audio != null), VideoConfig.alpha()),
             moviesDir(),
             resolved,
             audio

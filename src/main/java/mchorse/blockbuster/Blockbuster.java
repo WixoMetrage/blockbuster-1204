@@ -37,6 +37,8 @@ import mchorse.blockbuster.network.server.ServerHandlerStructureRequest;
 import mchorse.blockbuster.recording.capturing.ActionHandler;
 import mchorse.blockbuster.utils.mclib.BlockbusterResourceTransformer;
 import mchorse.blockbuster.utils.mclib.ValueAudioButtons;
+import mchorse.blockbuster.utils.mclib.ValueVideoEncoder;
+import mchorse.blockbuster.utils.mclib.ValueVideoResolution;
 import mchorse.blockbuster.utils.mclib.ValueMainButtons;
 import mchorse.blockbuster_pack.BlockbusterFactory;
 import mchorse.blockbuster_pack.MetamorphHandler;
@@ -386,6 +388,14 @@ public class Blockbuster implements ModInitializer
      * config-side so the folder survives world switches). */
     public static ValueString videoExportPath = new ValueString("export_path", "");
     public static ValueBoolean videoEncoderLog = new ValueBoolean("encoder_log", VideoConfig.DEFAULT_ENCODER_LOG);
+    /** wixo.1: render at the chosen resolution even with an Iris shader pack (CDC R2). */
+    public static ValueBoolean videoCustomResolutionShaders = new ValueBoolean("custom_resolution_shaders", VideoConfig.DEFAULT_CUSTOM_RESOLUTION_SHADERS);
+    /** wixo.1: encoding preset id ({@link mchorse.blockbuster.client.video.EncoderPresets}); empty = not chosen yet (migrated on read). */
+    public static ValueVideoEncoder videoEncoder = new ValueVideoEncoder("encoder", "");
+    /** wixo.1 (CDC R1): presets + width/height + effective size, shown in place of the two raw fields. */
+    public static ValueVideoResolution videoResolution = new ValueVideoResolution("resolution");
+    /** wixo.1 (CDC §2.6): verbose recorder diagnostics in latest.log. */
+    public static ValueBoolean videoDebug = new ValueBoolean("debug", false);
 
     /* ------------------------------------------------------------------ */
     /* screenshot category — S18's transparent still (S22/P298).          */
@@ -588,8 +598,9 @@ public class Blockbuster implements ModInitializer
         builder.register(videoArgumentsAudio);
         builder.register(videoArgumentsAlpha);
         builder.register(videoArgumentsAlphaAudio);
-        builder.register(videoWidth);
-        builder.register(videoHeight);
+        builder.register(videoResolution.clientSide());
+        builder.register(videoWidth.invisible());
+        builder.register(videoHeight.invisible());
         builder.register(videoFrameRate);
         builder.register(videoMotionBlur);
         builder.register(videoHeldFrames);
@@ -597,6 +608,9 @@ public class Blockbuster implements ModInitializer
         builder.register(videoAudio);
         builder.register(videoExportPath);
         builder.register(videoEncoderLog);
+        builder.register(videoCustomResolutionShaders);
+        builder.register(videoEncoder);
+        builder.register(videoDebug);
         builder.getCategory().markClientSide();
 
         /* Screenshot category (S18 P204's transparent still, registered by

@@ -2,10 +2,13 @@ package mchorse.blockbuster.client.gui;
 
 import mchorse.aperture.camera.minema.MinemaIntegration;
 import mchorse.blockbuster.Blockbuster;
+import mchorse.blockbuster.client.video.EncoderPresets;
 import mchorse.blockbuster.client.video.MinemaBackend;
+import mchorse.blockbuster.client.video.VideoConfig;
 import mchorse.mclib.client.gui.framework.GuiBase;
 import mchorse.mclib.client.gui.framework.elements.GuiElement;
 import mchorse.mclib.client.gui.framework.elements.buttons.GuiButtonElement;
+import mchorse.mclib.client.gui.framework.elements.buttons.GuiCirculateElement;
 import mchorse.mclib.client.gui.framework.elements.input.GuiTextElement;
 import mchorse.mclib.client.gui.framework.elements.input.GuiTrackpadElement;
 import mchorse.mclib.client.gui.framework.elements.utils.GuiDraw;
@@ -22,6 +25,7 @@ import net.minecraft.sound.SoundEvents;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.List;
 
 /**
  * Minema's Shift+F4 capture configuration screen, ported onto Blockbuster's
@@ -41,6 +45,8 @@ public class GuiCaptureConfiguration extends GuiBase
     public GuiTrackpadElement videoWidth;
     public GuiTrackpadElement videoHeight;
     public GuiTrackpadElement frameRate;
+    public GuiCaptureSummary summary;
+    public GuiCirculateElement encoder;
     public GuiButtonElement movies;
     public GuiButtonElement settings;
     public GuiButtonElement record;
@@ -82,14 +88,48 @@ public class GuiCaptureConfiguration extends GuiBase
                 Elements.label(IKey.lang("minema.gui.height")).marginBottom(2),
                 this.videoHeight));
 
+        /* wixo.1 (CDC R1/R7): one click per usual size; "window" is 0×0. */
+        GuiElement presetRow = Elements.row(mc, 5,
+            this.sizeButton(mc, "blockbuster.video.gui.preset_1080", 1920, 1080),
+            this.sizeButton(mc, "blockbuster.video.gui.preset_1440", 2560, 1440),
+            this.sizeButton(mc, "blockbuster.video.gui.preset_4k", 3840, 2160),
+            this.sizeButton(mc, "blockbuster.video.gui.preset_window", 0, 0));
+
+        GuiElement verticalRow = Elements.row(mc, 5,
+            this.sizeButton(mc, "blockbuster.video.gui.preset_vertical_1080", 1080, 1920),
+            this.sizeButton(mc, "blockbuster.video.gui.preset_vertical_4k", 2160, 3840));
+
+        this.summary = new GuiCaptureSummary(mc,
+            () -> (int) Math.round(this.videoWidth.value),
+            () -> (int) Math.round(this.videoHeight.value));
+        this.summary.flex().h(12);
+
+        List<String> encoders = EncoderPresets.ids();
+
+        this.encoder = new GuiCirculateElement(mc, (b) -> Blockbuster.videoEncoder.set(encoders.get(b.getValue())));
+
+        for (String id : encoders)
+        {
+            this.encoder.addLabel(IKey.lang("blockbuster.video.encoder." + id));
+        }
+
+        this.encoder.setValue(Math.max(0, encoders.indexOf(VideoConfig.encoder())));
+        this.encoder.tooltip(IKey.lang("blockbuster.config.comments.video.encoder"));
+        this.encoder.flex().h(20);
+
         GuiElement form = Elements.column(mc, 5,
             Elements.label(IKey.lang("minema.gui.title")).anchor(0.5F, 0.5F).marginBottom(12),
             Elements.label(IKey.lang("minema.gui.name")).marginBottom(2),
             this.name,
             this.fileExistsLabel,
             sizeRow.marginTop(8),
+            presetRow,
+            verticalRow,
+            this.summary,
             Elements.label(IKey.lang("minema.gui.fps")).marginTop(8).marginBottom(2),
-            this.frameRate);
+            this.frameRate,
+            Elements.label(IKey.lang("blockbuster.video.gui.encoder")).marginTop(8).marginBottom(2),
+            this.encoder);
 
         form.flex().relative(this.viewport).x(0.5F).y(24).w(300).anchorX(0.5F);
 
@@ -137,6 +177,19 @@ public class GuiCaptureConfiguration extends GuiBase
      * Open the McLib dashboard on the config panel, with Blockbuster already
      * selected (the full {@code video.*} category and the rest of the mod).
      */
+    private GuiButtonElement sizeButton(MinecraftClient mc, String key, int width, int height)
+    {
+        GuiButtonElement button = new GuiButtonElement(mc, IKey.lang(key), (b) ->
+        {
+            this.videoWidth.setValue(width);
+            this.videoHeight.setValue(height);
+        });
+
+        button.flex().h(20);
+
+        return button;
+    }
+
     private void openSettings()
     {
         this.saveConfigValues();

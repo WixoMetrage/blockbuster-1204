@@ -13,6 +13,8 @@ public enum VideoFormat
 {
     /** 3 bytes/pixel, blue-green-red order (opaque video, ffmpeg {@code bgr24}). */
     BGR(3, false, "bgr24"),
+    /** 4-byte rows whose 4th byte is ignored: the fast BGRA readback for opaque video (wixo.1). */
+    BGR0(4, false, "bgr0"),
 
     /** 4 bytes/pixel, blue-green-red-alpha order (transparent video, P203). */
     BGRA(4, true, "bgra");

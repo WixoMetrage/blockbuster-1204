@@ -33,8 +33,24 @@ public interface FrameSink extends AutoCloseable
      */
     void frame(ByteBuffer data) throws IOException;
 
-    /** Finalize the output. Must be called exactly once; safe backend teardown. */
+    /**
+     * Finalize the output. Must be called exactly once; safe backend teardown.
+     * Runs on the finalizer thread, never on the render thread (wixo.1, CDC R6),
+     * and throws when the output is not a valid file (encoder exit code).
+     */
     void end() throws IOException;
+
+    /** Where the recording ends up, for the "video finished" message. */
+    default String output()
+    {
+        return "";
+    }
+
+    /** The last lines of the encoder's own log, to show why it failed (CDC R4). */
+    default java.util.List<String> diagnostic()
+    {
+        return java.util.Collections.emptyList();
+    }
 
     @Override
     default void close() throws IOException

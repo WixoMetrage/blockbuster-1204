@@ -43,6 +43,9 @@ public final class VideoCaptureWiring
 
     private static boolean installed;
 
+    /** The {@code video.ffmpeg_path} value last probed on a world join (null = never). */
+    private static String ffmpegProbed;
+
     private VideoCaptureWiring()
     {}
 
@@ -57,6 +60,12 @@ public final class VideoCaptureWiring
     {
         MinemaBackend.capture = CAPTURE;
         MinemaBackend.audioResolver = SceneAudioTracker::resolve;
+
+        /* wixo.1 (CDC R4): recorder messages go to the chat, not only the log. */
+        VideoMessages.sink = VideoChat::post;
+
+        /* wixo.1 (CDC R1/R7): resolution presets and encoder selector in the config panel. */
+        VideoConfigGui.register();
 
         /* S22 P270: the GL half of custom-resolution capture. Without this
          * assignment CustomResolutionCapture.swap keeps its refuse-everything
@@ -84,6 +93,36 @@ public final class VideoCaptureWiring
          * still-screenshot path uses, so neither the HUD nor the (already
          * hidden, P202) camera-editor root can leak into a frame. */
         WorldRenderEvents.LAST.register(context -> CAPTURE.onFrame());
+
+        /* wixo.1 (CDC R5): on joining a world, say when ffmpeg cannot be run —
+         * not only when a take is already starting. Probed again whenever the
+         * configured path changed since the last probe (a path edited during
+         * the session is checked at the next join). The probe spawns a
+         * process, so it runs off the client thread. */
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+        {
+            String configured = VideoConfig.ffmpegPath();
+
+            if (configured.equals(ffmpegProbed))
+            {
+                return;
+            }
+
+            ffmpegProbed = configured;
+
+            Thread probe = new Thread(() ->
+            {
+                String path = FfmpegLocator.resolve(configured);
+
+                if (!FfmpegLocator.checkAvailable(path))
+                {
+                    VideoMessages.error("blockbuster.video.msg.no_ffmpeg_join", path);
+                }
+            }, "blockbuster-ffmpeg-probe");
+
+            probe.setDaemon(true);
+            probe.start();
+        });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
         {

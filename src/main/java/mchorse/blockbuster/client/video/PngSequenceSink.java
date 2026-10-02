@@ -1,7 +1,14 @@
 package mchorse.blockbuster.client.video;
 
 import javax.imageio.ImageIO;
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferByte;
+import java.awt.image.Raster;
+import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,11 +18,12 @@ import java.nio.ByteBuffer;
  * automatically when {@link FfmpegLocator#checkAvailable} is {@code false}, so
  * capture never hard-fails just because ffmpeg is missing.
  *
- * <p>Frames arrive bottom-up (GL row order) and BGR(A), so this sink flips rows
- * and swizzles to ARGB itself (the ffmpeg path leaves both to the {@code vflip}
- * filter and {@code bgr24} input). Uses {@link ImageIO} rather than Minecraft's
- * {@code NativeImage} so it is headlessly testable — a documented divergence;
- * both are RGBA-capable, which doubles this sink as the P203 alpha writer.</p>
+ * <p>wixo.1 (CDC R5): no per-pixel conversion. The image is built once over a
+ * byte array laid out exactly like the readback (BGR, BGR0 or BGRA: the colour
+ * model reads R, G, B — and A — at the matching byte offsets), so each frame is
+ * just its rows copied in reverse order (GL rows are bottom-up). Uses
+ * {@link ImageIO} rather than Minecraft's {@code NativeImage} so it is headlessly
+ * testable; RGBA-capable, which doubles this sink as the alpha writer.</p>
  */
 public class PngSequenceSink implements FrameSink
 {
@@ -25,7 +33,9 @@ public class PngSequenceSink implements FrameSink
     private File dir;
     private int width;
     private int height;
-    private VideoFormat format;
+    private int rowBytes;
+    private byte[] pixels;
+    private BufferedImage image;
     private int counter;
 
     public PngSequenceSink(File parentDir, String name)
@@ -43,44 +53,44 @@ public class PngSequenceSink implements FrameSink
     @Override
     public void begin(int width, int height, VideoFormat format) throws IOException
     {
+        int bpp = format.bytesPerPixel();
+        boolean alpha = format.hasAlpha();
+
         this.width = width;
         this.height = height;
-        this.format = format;
+        this.rowBytes = width * bpp;
         this.counter = 1;
         this.dir = new File(this.parentDir, this.name);
+        this.pixels = new byte[this.rowBytes * height];
 
+        /* Byte offsets of R, G, B (and A) inside one BGR/BGR0/BGRA pixel. */
+        int[] offsets = alpha ? new int[] {2, 1, 0, 3} : new int[] {2, 1, 0};
+        ComponentColorModel model = new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_sRGB),
+            alpha, false, alpha ? Transparency.TRANSLUCENT : Transparency.OPAQUE, DataBuffer.TYPE_BYTE);
+        WritableRaster raster = Raster.createInterleavedRaster(new DataBufferByte(this.pixels, this.pixels.length),
+            width, height, this.rowBytes, bpp, offsets, null);
+
+        this.image = new BufferedImage(model, raster, false, null);
         this.dir.mkdirs();
     }
 
     @Override
     public void frame(ByteBuffer data) throws IOException
     {
-        int bpp = this.format.bytesPerPixel();
-        boolean alpha = this.format.hasAlpha();
-        int type = alpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
-        BufferedImage image = new BufferedImage(this.width, this.height, type);
         int base = data.position();
 
         for (int y = 0; y < this.height; y++)
         {
             /* GL rows are bottom-up: image row y (top-down) is buffer row (h-1-y). */
-            int srcRow = this.height - 1 - y;
-
-            for (int x = 0; x < this.width; x++)
-            {
-                int i = base + (srcRow * this.width + x) * bpp;
-                int b = data.get(i) & 0xff;
-                int g = data.get(i + 1) & 0xff;
-                int r = data.get(i + 2) & 0xff;
-                int a = alpha ? (data.get(i + 3) & 0xff) : 0xff;
-
-                image.setRGB(x, y, (a << 24) | (r << 16) | (g << 8) | b);
-            }
+            data.position(base + (this.height - 1 - y) * this.rowBytes);
+            data.get(this.pixels, y * this.rowBytes, this.rowBytes);
         }
+
+        data.position(base + this.rowBytes * this.height);
 
         File file = new File(this.dir, String.format("%s_%06d.png", this.name, this.counter));
 
-        ImageIO.write(image, "png", file);
+        ImageIO.write(this.image, "png", file);
         this.counter++;
     }
 
@@ -88,5 +98,13 @@ public class PngSequenceSink implements FrameSink
     public void end() throws IOException
     {
         /* Nothing to finalize: each PNG is complete on write. */
+        this.pixels = null;
+        this.image = null;
+    }
+
+    @Override
+    public String output()
+    {
+        return new File(this.parentDir, this.name).getAbsolutePath();
     }
 }
