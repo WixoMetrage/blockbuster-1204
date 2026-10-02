@@ -21,5 +21,7 @@
   "aperture.gui.minema.tracking_origin_x": "Origine X",
   "aperture.gui.minema.tracking_origin_y": "Origine Y",
   "aperture.gui.minema.tracking_origin_z": "Origine Z",
-  "aperture.gui.minema.tracking_origin_generate": "Générer les coordonnées"
+  "aperture.gui.minema.tracking_origin_generate": "Générer les coordonnées",
+  "aperture.config.general.drag_reset_on_cut": "Drag remis à zéro à chaque coupe",
+  "aperture.config.comments.general.drag_reset_on_cut": "Un modifier Drag (global ou sur un plan) repart du nouveau plan à chaque coupe, au lieu de traîner la caméra depuis le plan précédent"
 }

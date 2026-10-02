@@ -80,6 +80,8 @@ public class Aperture
     public static ValueBoolean profileRender = new ValueBoolean("profile_render", true);
     public static ValueBoolean profileAutoSave = new ValueBoolean("auto_save", true);
     public static ValueBoolean essentialsTeleport = new ValueBoolean("essentials_tp", false);
+    /* wixo.1 (CDC §5, C2): a drag (global or per fixture) starts over at every cut */
+    public static ValueBoolean dragResetOnCut = new ValueBoolean("drag_reset_on_cut", true);
 
     /* Minema/recorder client config (category "minema", client-side).
      * Legacy: ClientProxy.registerClientConfig →
@@ -210,6 +212,7 @@ public class Aperture
         builder.register(profileRender);
         builder.register(profileAutoSave);
         builder.register(essentialsTeleport);
+        builder.register(dragResetOnCut);
 
         /* Processing camera command name (legacy: empty sanitized → "camera") */
         if (sanitizeCommandName(commandName.get()).isEmpty())

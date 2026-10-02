@@ -111,6 +111,10 @@ processResources {
 // `build` through `check`.
 test {
 	useJUnitPlatform()
+	// Camera logic (Aperture profiles, modifiers) runs on Minecraft's bundled
+	// libraries (gson, log4j, McLib values): put the main compile classpath on
+	// the test runtime. No game bootstrap happens, so tests stay headless.
+	classpath += sourceSets.main.compileClasspath
 }
 
 tasks.withType(JavaCompile).configureEach {
