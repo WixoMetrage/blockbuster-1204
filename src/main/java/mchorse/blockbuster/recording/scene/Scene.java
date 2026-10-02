@@ -287,7 +287,12 @@ public class Scene
      */
     private void seekWorld(int tick)
     {
-        SceneSeek.seek(this, this.worldTick, tick);
+        this.seekWorld(tick, null);
+    }
+
+    private void seekWorld(int tick, RecordPlayer self)
+    {
+        SceneSeek.seek(this, this.worldTick, tick, self);
 
         this.tick = this.worldTick = tick;
 
@@ -549,11 +554,16 @@ public class Scene
      */
     private void startWorldAt(int tick)
     {
+        this.startWorldAt(tick, null);
+    }
+
+    private void startWorldAt(int tick, RecordPlayer self)
+    {
         this.tick = this.worldTick = 0;
 
         if (tick > 0)
         {
-            this.seekWorld(tick);
+            this.seekWorld(tick, self);
 
             for (RecordPlayer player : this.actors.values())
             {
@@ -569,6 +579,16 @@ public class Scene
      * Used by recording code.
      */
     public void startPlayback(String exception, int tick)
+    {
+        this.startPlayback(exception, tick, null);
+    }
+
+    /**
+     * wixo (CDC §6, R4): with the recording {@code player}, a take re-recorded
+     * from {@code tick} also finds the world as its own earlier portion left
+     * it (the blocks it placed or broke before {@code tick}).
+     */
+    public void startPlayback(String exception, int tick, PlayerEntity player)
     {
         if (this.getWorld().isClient || this.playing)
         {
@@ -588,12 +608,35 @@ public class Scene
         this.playing = true;
         this.sendCommand(this.startCommand);
 
-        this.startWorldAt(tick);
+        this.startWorldAt(tick, this.selfPlayer(exception, tick, player));
         this.audioHandler.startAudio(tick);
 
         this.wasRecording = true;
         this.paused = false;
         this.tick = tick;
+    }
+
+    /** The old take of the replay being re-recorded, played on its player (seek only). */
+    private RecordPlayer selfPlayer(String filename, int tick, PlayerEntity player)
+    {
+        if (player == null || tick <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            RecordPlayer self = new RecordPlayer(CommonProxy.manager.get(filename), Mode.ACTIONS, player);
+
+            self.realPlayer = true;
+
+            return self;
+        }
+        catch (Exception e)
+        {
+            /* No previous take: nothing of its own to replay */
+            return null;
+        }
     }
 
     /**

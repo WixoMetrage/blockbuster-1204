@@ -607,6 +607,33 @@ public class ActionHandler
      */
     public static void onPlayerTick(ServerPlayerEntity player)
     {
+        /* Advance a player-attached playback (real-player playback) */
+        RecordPlayer record = EntityUtils.getRecordPlayer(player);
+
+        if (record != null)
+        {
+            record.next();
+
+            if (record.isFinished())
+            {
+                record.stopPlaying();
+            }
+        }
+    }
+
+    /**
+     * wixo (CDC §6, R4): the recording player's client finished a tick
+     * ({@code PacketRecordingTick}): close that tick's action list.
+     *
+     * <p>This used to run on every <b>server</b> tick while the frames were
+     * counted on the <b>client</b>: whenever the two drifted (the server lagging
+     * then catching up, or skipping ticks) every later action landed on the
+     * wrong frame. The client's packet arrives after the clicks of the same
+     * tick on the same ordered connection, so the lists now follow the frames
+     * one for one.</p>
+     */
+    public static void onRecordingTick(ServerPlayerEntity player)
+    {
         RecordManager manager = CommonProxy.manager;
 
         if (manager.recorders.containsKey(player))
@@ -636,20 +663,6 @@ public class ActionHandler
             else
             {
                 recorder.record(player);
-            }
-        }
-
-        /* Advance a player-attached playback (real-player playback or the
-         * offset re-record ACTIONS preview) */
-        RecordPlayer record = EntityUtils.getRecordPlayer(player);
-
-        if (record != null)
-        {
-            record.next();
-
-            if (record.isFinished())
-            {
-                record.stopPlaying();
             }
         }
     }

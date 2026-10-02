@@ -7,6 +7,7 @@ import mchorse.blockbuster.ClientProxy;
 import mchorse.blockbuster.aperture.CameraHandler;
 import mchorse.blockbuster.network.Dispatcher;
 import mchorse.blockbuster.network.common.PacketDamageControlCheck;
+import mchorse.blockbuster.network.common.recording.PacketRecordingTick;
 import mchorse.blockbuster.recording.RecordRecorder;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
@@ -150,6 +151,9 @@ public class FrameHandler
         if (recorder != null)
         {
             recorder.record(player);
+
+            /* wixo (CDC §6, R4): the server closes this tick's actions on it */
+            Dispatcher.sendToServer(new PacketRecordingTick());
         }
 
         if (Blockbuster.damageControlMessage.get() && !CameraHandler.isCameraEditorOpen())

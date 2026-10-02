@@ -127,6 +127,11 @@ public final class ChannelLedger
     public static final Identifier SCENE_LENGTH = bb("scene_length");
     public static final Identifier AUDIO_SHIFT = bb("audio_shift");
 
+    /* wixo additions (no 1.12 slot) */
+
+    /** CDC §6 R4: the client closes each recorded tick. */
+    public static final Identifier RECORDING_TICK = bb("recording_tick");
+
     /* mclib channel (legacy slots 0..8) */
 
     public static final Identifier MCLIB_DROP_ITEM = ml("drop_item");

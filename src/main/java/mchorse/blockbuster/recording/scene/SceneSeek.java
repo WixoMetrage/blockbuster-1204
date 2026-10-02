@@ -9,7 +9,11 @@ import mchorse.blockbuster.recording.RecordPlayer;
 import mchorse.blockbuster.recording.actions.Action;
 import mchorse.blockbuster.recording.actions.EquipAction;
 import mchorse.blockbuster.recording.actions.HotbarChangeAction;
+import mchorse.blockbuster.recording.actions.ItemUseBlockAction;
 import mchorse.blockbuster.recording.data.Record;
+import mchorse.blockbuster.utils.EntityUtils;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
 
@@ -43,6 +47,17 @@ public final class SceneSeek
 
     public static void seek(Scene scene, int from, int to)
     {
+        seek(scene, from, to, null);
+    }
+
+    /**
+     * @param self the take being re-recorded from {@code to} (its record on the
+     *             recording player), or null. Its actions before {@code to} are
+     *             part of the world too, but only their effect on blocks is
+     *             replayed — never the player's items, position or rotation.
+     */
+    public static void seek(Scene scene, int from, int to, RecordPlayer self)
+    {
         if (to == from)
         {
             return;
@@ -58,6 +73,11 @@ public final class SceneSeek
             return;
         }
 
+        if (self != null)
+        {
+            players.add(self);
+        }
+
         List<ChronologicalSeek.Track<Action>> tracks = new ArrayList<>();
 
         for (RecordPlayer player : players)
@@ -65,6 +85,17 @@ public final class SceneSeek
             Record record = player.record;
 
             tracks.add((tick) -> record == null ? null : record.getActions(tick - record.preDelay));
+        }
+
+        LivingEntity selfActor = self == null ? null : self.actor;
+        RecordPlayer selfPrevious = selfActor == null ? null : EntityUtils.getRecordPlayer(selfActor);
+        Vec3d selfPos = selfActor == null ? null : selfActor.getPos();
+        float selfYaw = selfActor == null ? 0 : selfActor.getYaw();
+        float selfPitch = selfActor == null ? 0 : selfActor.getPitch();
+
+        if (selfActor != null)
+        {
+            EntityUtils.setRecordPlayer(selfActor, self);
         }
 
         seeking = true;
@@ -83,7 +114,16 @@ public final class SceneSeek
             {
                 RecordPlayer player = players.get(index);
 
-                if (action.modifiesWorld())
+                if (player == self)
+                {
+                    /* Blocks only: the item in the player's hand now is not
+                     * the one of the old take, so no item use */
+                    if (!action.modifiesWorld() || action instanceof ItemUseBlockAction)
+                    {
+                        return;
+                    }
+                }
+                else if (action.modifiesWorld())
                 {
                     /* Block actions aim from the actor's recorded position */
                     player.applyFrame(tick, player.actor, true);
@@ -95,6 +135,12 @@ public final class SceneSeek
         finally
         {
             seeking = false;
+
+            if (selfActor != null)
+            {
+                EntityUtils.setRecordPlayer(selfActor, selfPrevious);
+                selfActor.refreshPositionAndAngles(selfPos.x, selfPos.y, selfPos.z, selfYaw, selfPitch);
+            }
         }
     }
 
