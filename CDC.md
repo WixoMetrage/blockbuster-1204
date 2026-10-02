@@ -137,6 +137,15 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 
 *Remarque de Claude Code (livraison wixo.1) :* le préréglage NVENC exige un pilote NVIDIA 610 ou plus récent avec ffmpeg 9.0.1. Le pilote 596.36 installé est refusé, et le message rouge en jeu l'indique.
 
+**Retours de Wixo pendant les tests (2026-10-02), tous corrigés dans wixo.1 :**
+- Le choix de la résolution et de l'encodage doit se faire dans les **réglages vidéo Blockbuster** (panneau de config), pas seulement dans Maj+F4. → Ajout d'un bloc Résolution et d'un sélecteur d'encodage dans les réglages.
+- Maj+F4 lançait une prise au lieu d'ouvrir le panneau (Maj lu trop tard). → Maj est lu au moment de l'appui.
+- **Capture trop lente** (4K : 8 images/s, 15 min pour 2 min de vidéo). Cause mesurée : l'envoi à ffmpeg par blocs de 8 Ko plafonnait à 300 Mo/s. → Envoi par blocs de 4 Mo : 4K à environ 40 images/s.
+- Wixo filme en **vertical 9:16**, jusqu'ici en 4K paysage avec le letterbox d'Aperture (seuls 1215×2160 pixels étaient utiles). → Préréglages Vertical 1080×1920 et 2160×3840 : rendu direct, même cadrage.
+- Le message « ffmpeg introuvable » n'apparaissait pas à l'entrée dans un monde après un changement de chemin. → Nouvelle vérification quand le chemin change.
+
+**Résultat des tests en jeu (2026-10-02) :** V1 ✅ · V2 ✅ · V4 ✅ · V5 ✅ · V6 ✅ · V7 ✅ · V8 ✅ · V9 ✅, plus une prise caméra Aperture ✅.
+
 ---
 
 ## 5. Chantier 2 : caméra, FOV et coupes  📝 (décisions prises, à détailler)
@@ -151,6 +160,7 @@ L'enregistrement ne fonctionne correctement que sur l'écran 4K. Sur les autres 
 - Le Drag (au niveau d'un plan **et** au niveau global) **repart à zéro à chaque coupe**. Vérifier tous les modifiers à état (Shake, etc.) pour le même défaut.
 
 **Autres points relevés :** roll interpolé avec une valeur périmée (`prevRollMode`) ; l'aperçu écrit l'option FOV vanilla à chaque image (spam de logs au-delà de 30-110) ; le filtre de caméra lisse dépend du framerate.
+- *Relevé pendant le chantier 1 :* une prise Aperture d'un profil de 30 ticks a produit 96 images au lieu de 90 (0,1 s de trop). Le démarrage et l'arrêt de l'enregistrement par Aperture ne sont pas calés à l'image près : l'arrêt n'est vérifié qu'une fois par image d'interface (`RecordingLifecycle.minema`). Ça rejoint l'exigence de coupes nettes à l'image exacte.
 
 ---
 

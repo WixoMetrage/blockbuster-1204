@@ -1,6 +1,6 @@
 # Changelog — Blockbuster (fork Wixo)
 
-## 2.7.3-wixo.1 — chantier 1 : vidéo (à tester en jeu)
+## 2.7.3-wixo.1 — chantier 1 : vidéo (validé en jeu le 2026-10-02 : V1 à V9)
 
 ### Résolution (CDC R1, R2, R4)
 - La vidéo a toujours la taille choisie, toujours paire, quelle que soit la fenêtre (plus petite, plus grande, autre proportion, minimisée).
@@ -8,13 +8,14 @@
 - Fenêtre de taille impaire : rendu à la taille paire. Si c'est impossible, la ligne en trop est rognée.
 - Si le rendu à la taille choisie est refusé, la fenêtre est mise à l'échelle avec des bandes noires, et un message jaune l'explique.
 - Fenêtre redimensionnée pendant une prise : la vidéo garde sa taille, plus d'image noire ou figée.
+- **Vidéo verticale native** : préréglages Vertical 1080×1920 et 2160×3840. Même cadrage que le letterbox 9:16 d'Aperture, sans rendre les côtés perdus.
 
 ### Fenêtre minimisée, alt-tab (CDC R3)
 - Pendant une prise, la perte de focus n'ouvre plus le menu pause, qui figeait la scène.
 
 ### Messages (CDC R4)
 - Dans le chat : début d'enregistrement (taille, encodage, shaders), dégradations en jaune, erreurs en rouge avec les dernières lignes du log ffmpeg, et « Vidéo terminée : <chemin> ».
-- ffmpeg introuvable : message rouge à l'entrée dans un monde et au lancement d'une prise.
+- ffmpeg introuvable : message rouge à l'entrée dans un monde (revérifié si le chemin change) et au lancement d'une prise.
 
 ### Encodage (CDC R5)
 - Préréglages : **H.264 qualité 1.12.2** (défaut, réglages Minema), **H.264 qp 10**, **NVENC** et **personnalisé** (anciens gabarits `video.arguments*`).
@@ -24,12 +25,15 @@
 
 ### Performance (CDC R6)
 - Lecture GPU asynchrone (anneau de 3 PBO, BGRA), sans copie intermédiaire.
+- **Envoi à ffmpeg par blocs de 4 Mo** au lieu de 8 Ko. Le tuyau plafonnait à 300 Mo/s : en 4K avec Complementary, on passe de 8 à environ 40 images/s (2 min de vidéo : 15 min → 3 min).
 - La fermeture de ffmpeg se fait en arrière-plan : le jeu ne gèle plus à la fin d'une prise. Le code de sortie est vérifié.
 
 ### Interface (CDC R7)
-- Maj+F4 : boutons 1080p / 1440p / 4K / Taille de la fenêtre, choix de l'encodage, résolution effective affichée en direct (aussi dans le panneau de l'éditeur caméra).
+- **Réglages vidéo Blockbuster** : bloc Résolution (1080p, 1440p, 4K, Taille de la fenêtre, Vertical 1080×1920, Vertical 2160×3840, largeur et hauteur libres, résolution effective en direct) et sélecteur d'encodage.
+- Maj+F4 : les mêmes boutons et le même choix d'encodage. Maj est lu au moment de l'appui (un Maj+F4 rapide lançait une prise).
+- La résolution effective s'affiche aussi dans le panneau d'enregistrement de l'éditeur caméra.
 - Commentaires de config pour toutes les options vidéo, traduction française.
-- Option `Mode debug` (temps de lecture GPU dans `latest.log`).
+- Option `Mode debug` : dans `latest.log`, temps par image et par étape (rendu GPU, lecture, copie, envoi à ffmpeg).
 
 ### Tracking (CDC R8)
 - Le JSON de tracking annonce la taille réelle de la vidéo.
