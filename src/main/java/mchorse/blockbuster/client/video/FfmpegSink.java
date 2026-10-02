@@ -5,9 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayDeque;
@@ -22,12 +21,9 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Process lifecycle mirrors the BBS pattern minus its {@code Unsafe} tricks:
  * {@code redirectErrorStream(true)} + a file redirect so an un-drained stderr
- * can never deadlock the encoder; frames written through a
- * {@link WritableByteChannel} over stdin at full-frame granularity (no tiny
- * {@code BufferedOutputStream} to unwrap — we hand it whole frames, so the
- * default buffering is not the throughput bottleneck BBS fought). Closing stdin
- * (not killing the process) is what tells ffmpeg to finalize the container, so
- * {@link #end()} does {@code channel.close()} → {@code waitFor(timeout)} →
+ * can never deadlock the encoder. Closing stdin (not killing the process) is
+ * what tells ffmpeg to finalize the container, so {@link #end()} does
+ * {@code close()} → {@code waitFor(timeout)} →
  * {@code destroy()} in that order.</p>
  */
 public class FfmpegSink implements FrameSink
@@ -45,7 +41,18 @@ public class FfmpegSink implements FrameSink
     private final File logFile;
 
     private Process process;
-    private WritableByteChannel channel;
+    private OutputStream stdin;
+
+    /**
+     * wixo.1 (CDC R6): frames go to ffmpeg in {@value #CHUNK} chunks. The
+     * former {@code Channels.newChannel(stdin)} wrote 8 KB at a time — about
+     * 4000 pipe round trips per 4K frame, capped at ~300 MB/s (9 fps in 4K,
+     * measured). 4 MB chunks measured ~2 GB/s on the same pipe. Allocated once
+     * per recording, never per frame.
+     */
+    static final int CHUNK = 4 << 20;
+
+    private byte[] chunk;
 
     public FfmpegSink(List<String> args, File workingDir, File logFile)
     {
@@ -111,20 +118,24 @@ public class FfmpegSink implements FrameSink
         }
 
         this.process = builder.start();
-        this.channel = Channels.newChannel(this.process.getOutputStream());
+        this.stdin = this.process.getOutputStream();
+        this.chunk = new byte[CHUNK];
     }
 
     @Override
     public void frame(ByteBuffer data) throws IOException
     {
-        if (this.channel == null)
+        if (this.stdin == null)
         {
             throw new IOException("ffmpeg sink written before begin()");
         }
 
         while (data.hasRemaining())
         {
-            this.channel.write(data);
+            int n = Math.min(this.chunk.length, data.remaining());
+
+            data.get(this.chunk, 0, n);
+            this.stdin.write(this.chunk, 0, n);
         }
     }
 
@@ -138,9 +149,9 @@ public class FfmpegSink implements FrameSink
     {
         try
         {
-            if (this.channel != null && this.channel.isOpen())
+            if (this.stdin != null)
             {
-                this.channel.close();
+                this.stdin.close();
             }
         }
         catch (IOException e)
@@ -150,7 +161,8 @@ public class FfmpegSink implements FrameSink
         }
         finally
         {
-            this.channel = null;
+            this.stdin = null;
+            this.chunk = null;
         }
 
         if (this.process == null)
