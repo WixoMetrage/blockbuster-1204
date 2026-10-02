@@ -26,6 +26,7 @@
 		"ServerPlayerEntityCameraMixin",
 		"ServerPlayerEntityMixin",
 		"ServerWorldMixin",
+		"ViewerCountManagerMixin",
 		"WorldMixin"
 	]
 }

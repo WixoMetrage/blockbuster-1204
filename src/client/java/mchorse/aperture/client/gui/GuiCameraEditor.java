@@ -1076,6 +1076,7 @@ public class GuiCameraEditor extends GuiBase
 
         this.maxScrub = 0;
         this.haveScrubbed = false;
+        ClientProxy.control.previewFov = null;
 
         this.updateOverlay();
         this.position.set(player);
